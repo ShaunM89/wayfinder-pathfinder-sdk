@@ -236,10 +236,23 @@ class CurlFetcher:
         return candidates
 
 
+# HTTP status codes that indicate the server is blocking access.
+# Playwright does NOT throw exceptions for these — it renders whatever
+# HTML the server returns (e.g. a "403 Forbidden" error page).
+_PLAYWRIGHT_BLOCK_STATUSES = {401, 403, 407, 429, 451}
+_PLAYWRIGHT_ERROR_STATUSES = {500, 502, 503, 504}
+
+
 class PlaywrightFetcher:
     """Fetch JS-rendered pages using Playwright headless shell.
 
+    Uses lightweight headless Chromium (headless_shell on Linux).
     Playwright is an optional dependency.
+
+    Args:
+        user_agent: User-Agent string.
+        timeout: Navigation timeout in milliseconds.
+        headless: Run browser in headless mode (uses headless_shell).
     """
 
     def __init__(
@@ -259,6 +272,9 @@ class PlaywrightFetcher:
     def fetch(self, url: str) -> list[dict]:
         """Fetch URL with Playwright and extract candidate links.
 
+        Explicitly checks HTTP status codes because Playwright does not
+        raise on 4xx/5xx — it renders the error page HTML.
+
         Args:
             url: URL to fetch.
 
@@ -266,7 +282,8 @@ class PlaywrightFetcher:
             List of candidate link dicts.
 
         Raises:
-            FetchError: If Playwright is not installed or fetch fails.
+            FetchError: If Playwright is not installed, browser missing,
+                page blocked, or navigation fails.
         """
         try:
             from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
@@ -281,15 +298,36 @@ class PlaywrightFetcher:
                 browser = p.chromium.launch(headless=self.headless)
                 context = browser.new_context(user_agent=self.user_agent)
                 page = context.new_page()
-                page.goto(url, timeout=self.timeout, wait_until="domcontentloaded")
-                html = page.content()
-                final_url = page.url
-                context.close()
-                browser.close()
+
+                try:
+                    response = page.goto(
+                        url,
+                        timeout=self.timeout,
+                        wait_until="domcontentloaded",
+                    )
+                    final_url = page.url
+                    html = page.content()
+                finally:
+                    context.close()
+                    browser.close()
         except PWTimeout as exc:
             raise FetchError(f"Playwright timeout for {url}") from exc
         except Exception as exc:
             raise FetchError(f"Playwright error for {url}: {exc}") from exc
+
+        # Playwright does NOT throw on 4xx/5xx — check explicitly
+        if response is not None:
+            status = response.status
+            if status in _PLAYWRIGHT_BLOCK_STATUSES:
+                raise FetchError(
+                    f"Playwright received HTTP {status} for {url} "
+                    f"(blocked or rate-limited)"
+                )
+            if status in _PLAYWRIGHT_ERROR_STATUSES:
+                raise FetchError(
+                    f"Playwright received HTTP {status} for {url} "
+                    f"(server error)"
+                )
 
         return self._parse_html(html, final_url)
 

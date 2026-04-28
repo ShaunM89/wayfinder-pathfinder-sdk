@@ -273,3 +273,85 @@ class TestPlaywrightFetcher:
             fetcher = PlaywrightFetcher()
             with pytest.raises(FetchError, match="Playwright is not installed"):
                 fetcher.fetch("https://example.com")
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_playwright_block_status(self, mock_sync_pw):
+        """HTTP 403 from Playwright should raise FetchError."""
+        mock_browser = MagicMock()
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status = 403
+
+        mock_page.goto.return_value = mock_response
+        mock_page.url = "https://example.com"
+        mock_page.content.return_value = "<html></html>"
+        mock_context.new_page.return_value = mock_page
+        mock_browser.new_context.return_value = mock_context
+        mock_browser_type = MagicMock()
+        mock_browser_type.launch.return_value = mock_browser
+
+        mock_pw = MagicMock()
+        mock_pw.chromium = mock_browser_type
+        mock_sync_pw.return_value.__enter__ = MagicMock(return_value=mock_pw)
+        mock_sync_pw.return_value.__exit__ = MagicMock(return_value=False)
+
+        fetcher = PlaywrightFetcher()
+        with pytest.raises(FetchError, match="blocked"):
+            fetcher.fetch("https://example.com")
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_playwright_server_error(self, mock_sync_pw):
+        """HTTP 503 from Playwright should raise FetchError."""
+        mock_browser = MagicMock()
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status = 503
+
+        mock_page.goto.return_value = mock_response
+        mock_page.url = "https://example.com"
+        mock_page.content.return_value = "<html></html>"
+        mock_context.new_page.return_value = mock_page
+        mock_browser.new_context.return_value = mock_context
+        mock_browser_type = MagicMock()
+        mock_browser_type.launch.return_value = mock_browser
+
+        mock_pw = MagicMock()
+        mock_pw.chromium = mock_browser_type
+        mock_sync_pw.return_value.__enter__ = MagicMock(return_value=mock_pw)
+        mock_sync_pw.return_value.__exit__ = MagicMock(return_value=False)
+
+        fetcher = PlaywrightFetcher()
+        with pytest.raises(FetchError, match="server error"):
+            fetcher.fetch("https://example.com")
+
+    @patch("playwright.sync_api.sync_playwright")
+    def test_playwright_success(self, mock_sync_pw):
+        """Successful Playwright fetch returns parsed candidates."""
+        mock_browser = MagicMock()
+        mock_context = MagicMock()
+        mock_page = MagicMock()
+        mock_response = MagicMock()
+        mock_response.status = 200
+
+        mock_page.goto.return_value = mock_response
+        mock_page.url = "https://example.com"
+        mock_page.content.return_value = '<a href="/about">About</a>'
+        mock_context.new_page.return_value = mock_page
+        mock_browser.new_context.return_value = mock_context
+        mock_browser_type = MagicMock()
+        mock_browser_type.launch.return_value = mock_browser
+
+        mock_pw = MagicMock()
+        mock_pw.chromium = mock_browser_type
+        mock_sync_pw.return_value.__enter__ = MagicMock(return_value=mock_pw)
+        mock_sync_pw.return_value.__exit__ = MagicMock(return_value=False)
+
+        fetcher = PlaywrightFetcher()
+        candidates = fetcher.fetch("https://example.com")
+
+        assert len(candidates) == 1
+        assert candidates[0]["text"] == "About"
+        mock_context.close.assert_called_once()
+        mock_browser.close.assert_called_once()
