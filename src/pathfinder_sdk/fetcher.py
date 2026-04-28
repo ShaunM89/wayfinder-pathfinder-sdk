@@ -7,6 +7,7 @@ Adapted from compass_core.crawler.parser, fetcher, and dual_fetcher.
 """
 
 import logging
+import time
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup, NavigableString, Tag
@@ -33,14 +34,33 @@ _NON_HTML_CONTENT_TYPES = {
     "application/json",
 }
 
+# HTTP status codes that indicate blocking
+_BLOCK_STATUSES = {401, 403, 407, 429, 451}
+
+
+def _import_curl_cffi():
+    """Lazy-import curl_cffi to provide a clear error message."""
+    try:
+        from curl_cffi import requests as cffi_requests
+        return cffi_requests
+    except ImportError as exc:
+        raise FetchError(
+            "curl_cffi is not installed. Install it with: pip install curl-cffi"
+        ) from exc
+
 
 class CurlFetcher:
     """Fetch pages using curl_cffi for TLS fingerprint impersonation.
+
+    Includes HEAD preflight, size limits, retry logic with exponential
+    backoff, and non-HTML content filtering adapted from Compass.
 
     Args:
         user_agent: User-Agent string.
         timeout: Request timeout in seconds.
         max_body_size: Maximum response body size in bytes.
+        max_retries: Number of retry attempts on transient failures.
+        retry_delay: Base delay between retries in seconds.
     """
 
     def __init__(
@@ -48,6 +68,8 @@ class CurlFetcher:
         user_agent: str | None = None,
         timeout: int = 10,
         max_body_size: int = _MAX_RESPONSE_SIZE_BYTES,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
     ):
         self.user_agent = user_agent or (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -56,9 +78,14 @@ class CurlFetcher:
         )
         self.timeout = timeout
         self.max_body_size = max_body_size
+        self.max_retries = max_retries
+        self.retry_delay = retry_delay
 
     def fetch(self, url: str) -> list[dict]:
         """Fetch URL and extract candidate links.
+
+        Performs HEAD preflight to avoid downloading non-HTML bodies,
+        then GET with retry logic and size limits.
 
         Args:
             url: URL to fetch.
@@ -69,35 +96,111 @@ class CurlFetcher:
         Raises:
             FetchError: If the page cannot be fetched.
         """
-        try:
-            from curl_cffi import requests as cffi_requests
-        except ImportError as exc:
-            raise FetchError(
-                "curl_cffi is not installed. Install it with: pip install curl-cffi"
-            ) from exc
+        cffi_requests = _import_curl_cffi()
 
+        # Stage 1: HEAD preflight — check content-type without downloading body
+        content_type, content_length = self._head_preflight(cffi_requests, url)
+        if content_type and content_type in _NON_HTML_CONTENT_TYPES:
+            raise FetchError(f"Non-HTML content: {content_type}")
+        if content_length and content_length > self.max_body_size:
+            mb = content_length // 1024 // 1024
+            limit_mb = self.max_body_size // 1024 // 1024
+            raise FetchError(f"Page too large ({mb}MB), max {limit_mb}MB")
+
+        # Stage 2: GET with retries
+        response = self._get_with_retry(cffi_requests, url)
+
+        # Double-check content-type from GET response
+        ct = response.headers.get("content-type", "").lower()
+        raw_ct = ct.split(";")[0].strip()
+        if raw_ct in _NON_HTML_CONTENT_TYPES:
+            raise FetchError(f"Non-HTML content: {raw_ct}")
+
+        # Size guard (chunked responses may not have Content-Length)
+        body_size = len(response.content)
+        if body_size > self.max_body_size:
+            mb = body_size // 1024 // 1024
+            limit_mb = self.max_body_size // 1024 // 1024
+            raise FetchError(f"Page body too large ({mb}MB), max {limit_mb}MB")
+
+        return self._parse_html(response.text, str(response.url))
+
+    def _head_preflight(
+        self, cffi_requests, url: str
+    ) -> tuple[str | None, int | None]:
+        """Send HEAD request to check content-type and length.
+
+        Returns:
+            Tuple of (content_type, content_length) or (None, None) on failure.
+        """
         try:
-            response = cffi_requests.get(
+            resp = cffi_requests.head(
                 url,
                 headers={"User-Agent": self.user_agent},
                 impersonate="chrome120",
                 timeout=self.timeout,
                 allow_redirects=True,
             )
-        except Exception as exc:
-            raise FetchError(f"curl_cffi request failed for {url}: {exc}") from exc
+            if resp.status_code in {200, 301, 302, 307, 308}:
+                ct = resp.headers.get("content-type", "").lower()
+                raw_ct = ct.split(";")[0].strip() or None
+                cl = resp.headers.get("content-length")
+                cl_int = int(cl) if cl and cl.isdigit() else None
+                return raw_ct, cl_int
+        except Exception:
+            pass
+        return None, None
 
-        if response.status_code != 200:
-            raise FetchError(
-                f"HTTP {response.status_code} for {url}"
-            )
+    def _get_with_retry(self, cffi_requests, url: str):
+        """GET with exponential backoff retry on transient failures."""
+        last_error: Exception | None = None
 
-        content_type = response.headers.get("content-type", "").lower()
-        raw_ct = content_type.split(";")[0].strip()
-        if raw_ct in _NON_HTML_CONTENT_TYPES:
-            raise FetchError(f"Non-HTML content: {raw_ct}")
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                response = cffi_requests.get(
+                    url,
+                    headers={"User-Agent": self.user_agent},
+                    impersonate="chrome120",
+                    timeout=self.timeout,
+                    allow_redirects=True,
+                )
 
-        return self._parse_html(response.text, str(response.url))
+                # Block statuses — don't retry, fail fast
+                if response.status_code in _BLOCK_STATUSES:
+                    raise FetchError(
+                        f"HTTP {response.status_code} for {url} "
+                        f"(blocked or rate-limited)"
+                    )
+
+                # Server errors — retry via RuntimeError (caught below)
+                if 500 <= response.status_code < 600:
+                    raise RuntimeError(
+                        f"HTTP {response.status_code} for {url} (server error)"
+                    )
+
+                # Non-2xx — fail fast
+                if response.status_code != 200:
+                    raise FetchError(
+                        f"HTTP {response.status_code} for {url}"
+                    )
+
+                return response
+
+            except FetchError:
+                raise
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "Fetch attempt %d/%d failed for %s: %s",
+                    attempt, self.max_retries, url, exc,
+                )
+                if attempt < self.max_retries:
+                    sleep_time = self.retry_delay * (2 ** (attempt - 1))
+                    time.sleep(sleep_time)
+
+        raise FetchError(
+            f"All {self.max_retries} fetch attempts failed for {url}: {last_error}"
+        )
 
     def _parse_html(self, html: str, base_url: str) -> list[dict]:
         """Parse HTML and extract candidate links."""
@@ -243,6 +346,7 @@ class Fetcher:
 
 
 # --- BeautifulSoup helpers extracted from Compass ---
+
 
 def _get_accessible_text(tag: Tag) -> str:
     """Extract visible text from a tag, including inside <template> elements.
