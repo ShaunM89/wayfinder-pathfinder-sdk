@@ -342,10 +342,17 @@ class Fetcher:
 
     Args:
         backend: "auto", "curl", "playwright", or None.
+        min_links_for_curl: In auto mode, fallback to Playwright if curl
+            returns fewer than this many links. Default: 3.
     """
 
-    def __init__(self, backend: str | None = "auto"):
+    def __init__(
+        self,
+        backend: str | None = "auto",
+        min_links_for_curl: int = 3,
+    ):
         self.backend = backend
+        self.min_links_for_curl = min_links_for_curl
         self._curl = CurlFetcher()
         self._playwright: PlaywrightFetcher | None = None
 
@@ -365,11 +372,18 @@ class Fetcher:
                 self._playwright = PlaywrightFetcher()
             return self._playwright.fetch(url)
         if self.backend == "auto":
-            candidates = self._curl.fetch(url)
-            if len(candidates) < 3:
+            # Try curl first; fallback on error OR low link count
+            try:
+                candidates = self._curl.fetch(url)
+            except FetchError as exc:
+                logger.info("curl_cffi failed for %s: %s", url, exc)
+                candidates = []
+
+            if len(candidates) < self.min_links_for_curl:
                 logger.info(
-                    "curl_cffi returned %d links for %s, trying Playwright",
-                    len(candidates), url,
+                    "curl_cffi returned %d links for %s (threshold=%d), "
+                    "trying Playwright",
+                    len(candidates), url, self.min_links_for_curl,
                 )
                 if self._playwright is None:
                     self._playwright = PlaywrightFetcher()

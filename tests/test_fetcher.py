@@ -222,8 +222,21 @@ class TestCurlFetcherFetch:
 class TestFetcherDispatcher:
     @patch("pathfinder_sdk.fetcher.CurlFetcher.fetch")
     @patch("pathfinder_sdk.fetcher.PlaywrightFetcher.fetch")
-    def test_auto_fallback(self, mock_pw_fetch, mock_curl_fetch):
+    def test_auto_fallback_low_link_count(self, mock_pw_fetch, mock_curl_fetch):
         mock_curl_fetch.return_value = []  # Too few links
+        mock_pw_fetch.return_value = [{"href": "/a", "text": "A"}]
+
+        fetcher = Fetcher(backend="auto")
+        result = fetcher.fetch("https://example.com")
+
+        assert len(result) == 1
+        mock_curl_fetch.assert_called_once()
+        mock_pw_fetch.assert_called_once()
+
+    @patch("pathfinder_sdk.fetcher.CurlFetcher.fetch")
+    @patch("pathfinder_sdk.fetcher.PlaywrightFetcher.fetch")
+    def test_auto_fallback_on_curl_error(self, mock_pw_fetch, mock_curl_fetch):
+        mock_curl_fetch.side_effect = FetchError("connection refused")
         mock_pw_fetch.return_value = [{"href": "/a", "text": "A"}]
 
         fetcher = Fetcher(backend="auto")
@@ -248,6 +261,23 @@ class TestFetcherDispatcher:
         assert len(result) == 3
         mock_curl_fetch.assert_called_once()
         mock_pw_fetch.assert_not_called()
+
+    @patch("pathfinder_sdk.fetcher.CurlFetcher.fetch")
+    @patch("pathfinder_sdk.fetcher.PlaywrightFetcher.fetch")
+    def test_auto_configurable_threshold(self, mock_pw_fetch, mock_curl_fetch):
+        mock_curl_fetch.return_value = [
+            {"href": "/a", "text": "A"},
+            {"href": "/b", "text": "B"},
+        ]
+        mock_pw_fetch.return_value = [{"href": "/c", "text": "C"}]
+
+        # Threshold of 5 means 2 links triggers fallback
+        fetcher = Fetcher(backend="auto", min_links_for_curl=5)
+        result = fetcher.fetch("https://example.com")
+
+        assert len(result) == 1
+        assert result[0]["text"] == "C"
+        mock_pw_fetch.assert_called_once()
 
     def test_none_backend_returns_empty(self):
         fetcher = Fetcher(backend=None)
