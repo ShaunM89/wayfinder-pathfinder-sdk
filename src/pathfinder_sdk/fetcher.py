@@ -42,6 +42,7 @@ def _import_curl_cffi():
     """Lazy-import curl_cffi to provide a clear error message."""
     try:
         from curl_cffi import requests as cffi_requests
+
         return cffi_requests
     except ImportError as exc:
         raise FetchError(
@@ -125,9 +126,7 @@ class CurlFetcher:
 
         return self._parse_html(response.text, str(response.url))
 
-    def _head_preflight(
-        self, cffi_requests, url: str
-    ) -> tuple[str | None, int | None]:
+    def _head_preflight(self, cffi_requests, url: str) -> tuple[str | None, int | None]:
         """Send HEAD request to check content-type and length.
 
         Returns:
@@ -180,9 +179,7 @@ class CurlFetcher:
 
                 # Non-2xx — fail fast
                 if response.status_code != 200:
-                    raise FetchError(
-                        f"HTTP {response.status_code} for {url}"
-                    )
+                    raise FetchError(f"HTTP {response.status_code} for {url}")
 
                 return response
 
@@ -192,7 +189,10 @@ class CurlFetcher:
                 last_error = exc
                 logger.warning(
                     "Fetch attempt %d/%d failed for %s: %s",
-                    attempt, self.max_retries, url, exc,
+                    attempt,
+                    self.max_retries,
+                    url,
+                    exc,
                 )
                 if attempt < self.max_retries:
                     sleep_time = self.retry_delay * (2 ** (attempt - 1))
@@ -221,16 +221,18 @@ class CurlFetcher:
             in_navigation = _is_in_navigation(link_tag)
             parent_tag = link_tag.parent.name if link_tag.parent else None
 
-            candidates.append({
-                "href": absolute_url,
-                "text": anchor_text,
-                "title": title_attr if title_attr else None,
-                "surrounding_text": surrounding_text,
-                "dom_path": dom_path,
-                "position": position,
-                "in_navigation": in_navigation,
-                "parent_tag": parent_tag,
-            })
+            candidates.append(
+                {
+                    "href": absolute_url,
+                    "text": anchor_text,
+                    "title": title_attr if title_attr else None,
+                    "surrounding_text": surrounding_text,
+                    "dom_path": dom_path,
+                    "position": position,
+                    "in_navigation": in_navigation,
+                    "parent_tag": parent_tag,
+                }
+            )
             position += 1
 
         return candidates
@@ -286,7 +288,10 @@ class PlaywrightFetcher:
                 page blocked, or navigation fails.
         """
         try:
-            from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+            from playwright.sync_api import (  # noqa: I001
+                TimeoutError as PWTimeout,
+                sync_playwright,
+            )
         except ImportError as exc:
             raise FetchError(
                 "Playwright is not installed. "
@@ -325,8 +330,7 @@ class PlaywrightFetcher:
                 )
             if status in _PLAYWRIGHT_ERROR_STATUSES:
                 raise FetchError(
-                    f"Playwright received HTTP {status} for {url} "
-                    f"(server error)"
+                    f"Playwright received HTTP {status} for {url} " f"(server error)"
                 )
 
         return self._parse_html(html, final_url)
@@ -383,7 +387,9 @@ class Fetcher:
                 logger.info(
                     "curl_cffi returned %d links for %s (threshold=%d), "
                     "trying Playwright",
-                    len(candidates), url, self.min_links_for_curl,
+                    len(candidates),
+                    url,
+                    self.min_links_for_curl,
                 )
                 if self._playwright is None:
                     self._playwright = PlaywrightFetcher()

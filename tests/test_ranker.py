@@ -8,8 +8,8 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from pathfinder_sdk.models import CandidateRecommendation, ModelLoadError, ModelNotFoundError
-from pathfinder_sdk.ranker import BiEncoderRanker, _MODEL_REGISTRY, _download_with_retry
+from pathfinder_sdk.models import ModelLoadError, ModelNotFoundError
+from pathfinder_sdk.ranker import _MODEL_REGISTRY, BiEncoderRanker, _download_with_retry
 
 
 class TestModelRegistry:
@@ -29,8 +29,14 @@ class TestDownloadWithRetry:
 
     @patch("pathfinder_sdk.ranker.snapshot_download")
     def test_success_after_retries(self, mock_snap):
-        mock_snap.side_effect = [ConnectionError("broken"), ConnectionError("broken"), "/fake/path"]
-        result = _download_with_retry("BAAI/bge-small", "/cache", max_retries=3, base_delay=0.01)
+        mock_snap.side_effect = [
+            ConnectionError("broken"),
+            ConnectionError("broken"),
+            "/fake/path",
+        ]
+        result = _download_with_retry(
+            "BAAI/bge-small", "/cache", max_retries=3, base_delay=0.01
+        )
         assert result == "/fake/path"
         assert mock_snap.call_count == 3
 
@@ -38,7 +44,9 @@ class TestDownloadWithRetry:
     def test_all_retries_exhausted(self, mock_snap):
         mock_snap.side_effect = ConnectionError("broken")
         with pytest.raises(ModelLoadError, match="after 2 attempts"):
-            _download_with_retry("BAAI/bge-small", "/cache", max_retries=2, base_delay=0.01)
+            _download_with_retry(
+                "BAAI/bge-small", "/cache", max_retries=2, base_delay=0.01
+            )
 
 
 class TestBiEncoderRankerInit:
@@ -119,12 +127,14 @@ class TestBiEncoderRankerRank:
         # Mock model.encode to return deterministic embeddings
         mock_model = MagicMock()
         # 3 candidates; task embedding + 3 candidate embeddings
-        mock_model.encode.return_value = np.array([
-            [1.0, 0.0, 0.0],   # task
-            [0.9, 0.1, 0.0],   # cand 0 — most similar
-            [0.5, 0.5, 0.0],   # cand 1
-            [0.1, 0.1, 0.1],   # cand 2 — least similar
-        ])
+        mock_model.encode.return_value = np.array(
+            [
+                [1.0, 0.0, 0.0],  # task
+                [0.9, 0.1, 0.0],  # cand 0 — most similar
+                [0.5, 0.5, 0.0],  # cand 1
+                [0.1, 0.1, 0.1],  # cand 2 — least similar
+            ]
+        )
         mock_st_class.return_value = mock_model
 
         ranker = BiEncoderRanker(model_tier="default")

@@ -12,12 +12,34 @@ from pathfinder_sdk.utils import LinkNormalizer
 _NON_NAVIGABLE_SCHEMES = frozenset({"mailto", "tel", "javascript", "data", "file"})
 
 # Non-HTML file extensions that should be dropped
-_NON_HTML_EXTENSIONS = frozenset({
-    ".pdf", ".zip", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg",
-    ".mp3", ".mp4", ".wav", ".avi", ".mov", ".wmv",
-    ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".exe", ".dmg", ".apk", ".iso",
-})
+_NON_HTML_EXTENSIONS = frozenset(
+    {
+        ".pdf",
+        ".zip",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".webp",
+        ".svg",
+        ".mp3",
+        ".mp4",
+        ".wav",
+        ".avi",
+        ".mov",
+        ".wmv",
+        ".doc",
+        ".docx",
+        ".xls",
+        ".xlsx",
+        ".ppt",
+        ".pptx",
+        ".exe",
+        ".dmg",
+        ".apk",
+        ".iso",
+    }
+)
 
 # DOM paths that indicate boilerplate (configurable)
 _BOILERPLATETAGS = frozenset({"footer", "header"})
@@ -62,9 +84,8 @@ class HeuristicFilter:
                 continue
 
             # Filter fragment-only links (same-page anchors with no path)
-            if not parsed.path or parsed.path == "/":
-                if parsed.fragment:
-                    continue
+            if (not parsed.path or parsed.path == "/") and parsed.fragment:
+                continue
 
             # Filter non-HTML extensions
             path_lower = parsed.path.lower()

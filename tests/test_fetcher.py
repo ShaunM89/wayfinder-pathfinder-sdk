@@ -1,6 +1,5 @@
 """Tests for fetcher module."""
 
-import sys
 from unittest.mock import MagicMock, patch
 
 import pytest

@@ -15,7 +15,11 @@ from huggingface_hub import snapshot_download
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
 
-from pathfinder_sdk.models import CandidateRecommendation, ModelLoadError, ModelNotFoundError
+from pathfinder_sdk.models import (
+    CandidateRecommendation,
+    ModelLoadError,
+    ModelNotFoundError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,14 +67,18 @@ def _download_with_retry(
             last_error = exc
             logger.warning(
                 "Model download attempt %d/%d failed for %s: %s",
-                attempt, max_retries, repo_id, exc,
+                attempt,
+                max_retries,
+                repo_id,
+                exc,
             )
             if attempt < max_retries:
                 sleep_time = base_delay * (2 ** (attempt - 1))
                 time.sleep(sleep_time)
 
     raise ModelLoadError(
-        f"Failed to download model '{repo_id}' after {max_retries} attempts: {last_error}"
+        f"Failed to download model '{repo_id}' after {max_retries} "
+        f"attempts: {last_error}"
     )
 
 
@@ -149,9 +157,7 @@ class BiEncoderRanker:
             return
         except Exception as exc:
             onnx_error = exc
-            logger.warning(
-                "ONNX backend failed (%s), falling back to PyTorch", exc
-            )
+            logger.warning("ONNX backend failed (%s), falling back to PyTorch", exc)
 
         # Attempt 2: PyTorch fallback (always works if model files are present)
         try:

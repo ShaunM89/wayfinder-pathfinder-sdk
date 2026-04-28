@@ -90,7 +90,9 @@ class Pathfinder:
         total_links = len(raw_candidates)
         logger.debug(
             "Fetched %d raw links from %s (%.2f ms)",
-            total_links, url, stage_latencies["fetch_ms"],
+            total_links,
+            url,
+            stage_latencies["fetch_ms"],
         )
 
         # Stage 1: Heuristic Filter
@@ -103,7 +105,9 @@ class Pathfinder:
         total_after_filter = len(filtered)
         logger.debug(
             "Filtered %d → %d links (%.2f ms)",
-            total_links, total_after_filter, stage_latencies["filter_ms"],
+            total_links,
+            total_after_filter,
+            stage_latencies["filter_ms"],
         )
 
         # Stage 2: Bi-Encoder Ranking
@@ -113,9 +117,7 @@ class Pathfinder:
             candidates=filtered,
             top_n=top_n,
         )
-        stage_latencies["rank_ms"] = round(
-            (time.perf_counter() - rank_start) * 1000, 2
-        )
+        stage_latencies["rank_ms"] = round((time.perf_counter() - rank_start) * 1000, 2)
 
         latency_ms = round((time.perf_counter() - overall_start) * 1000, 2)
 
