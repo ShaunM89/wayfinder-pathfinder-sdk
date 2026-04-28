@@ -457,6 +457,15 @@ class Fetcher:
         self._curl = CurlFetcher()
         self._playwright: PlaywrightFetcher | None = None
 
+    def _get_plugin_fetcher(self, name: str):
+        """Resolve a fetcher backend, including plugin fetchers."""
+        from pathfinder_sdk.plugins import resolve_fetcher
+
+        try:
+            return resolve_fetcher(name)
+        except ValueError:
+            return None
+
     def fetch(self, url: str) -> list[dict]:
         """Fetch URL and return candidate links.
 
@@ -497,6 +506,12 @@ class Fetcher:
             return candidates
         if self.backend is None:
             return []
+
+        # Try plugin registry
+        plugin_cls = self._get_plugin_fetcher(self.backend)
+        if plugin_cls is not None:
+            return plugin_cls().fetch(url)
+
         raise ValueError(f"Unknown fetcher backend: {self.backend}")
 
     async def fetch_async(self, url: str) -> list[dict]:
@@ -538,6 +553,15 @@ class Fetcher:
             return candidates
         if self.backend is None:
             return []
+
+        # Try plugin registry
+        plugin_cls = self._get_plugin_fetcher(self.backend)
+        if plugin_cls is not None:
+            instance = plugin_cls()
+            if hasattr(instance, "fetch_async"):
+                return await instance.fetch_async(url)
+            return instance.fetch(url)
+
         raise ValueError(f"Unknown fetcher backend: {self.backend}")
 
 
