@@ -22,6 +22,29 @@ from pathfinder_sdk.models import (
 )
 from pathfinder_sdk.utils import did_you_mean
 
+
+class _NoOpTqdm:
+    """No-op tqdm replacement for quiet mode."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        pass
+
+    def update(self, n=1):
+        pass
+
+    def close(self):
+        pass
+
+    def set_description(self, desc):
+        pass
+
+
 logger = logging.getLogger(__name__)
 
 # Model tier registry (HF Hub repo IDs)
@@ -41,6 +64,7 @@ def _download_with_retry(
     cache_dir: str,
     max_retries: int = _DOWNLOAD_MAX_RETRIES,
     base_delay: float = _DOWNLOAD_RETRY_DELAY,
+    tqdm_class=None,
 ) -> str:
     """Download model from HF Hub with exponential backoff retries.
 
@@ -49,6 +73,7 @@ def _download_with_retry(
         cache_dir: Local cache directory.
         max_retries: Maximum retry attempts.
         base_delay: Base delay in seconds between retries.
+        tqdm_class: Optional tqdm class for progress display.
 
     Returns:
         Local path to downloaded model.
@@ -63,6 +88,7 @@ def _download_with_retry(
                 repo_id=repo_id,
                 cache_dir=cache_dir,
                 local_files_only=False,
+                tqdm_class=tqdm_class,
             )
         except Exception as exc:
             last_error = exc
@@ -102,6 +128,7 @@ class BiEncoderRanker:
         cache_dir: str = "~/.cache/pathfinder",
         device: str | None = None,
         local_model_path: str | None = None,
+        quiet: bool = False,
     ):
         if model_tier not in _MODEL_REGISTRY:
             valid = list(_MODEL_REGISTRY.keys())
@@ -115,6 +142,7 @@ class BiEncoderRanker:
         self.cache_dir = str(Path(cache_dir).expanduser())
         self.device = device or "cpu"
         self.local_model_path = local_model_path
+        self.quiet = quiet
         self._model: SentenceTransformer | None = None
         self._backend: str = "pytorch"  # Tracks which backend is active
         # 10_000 entries ≈ 15 MB for 384-dim float32 embeddings
@@ -143,8 +171,12 @@ class BiEncoderRanker:
             logger.info("Using local model path: %s", model_path)
         else:
             repo_id = _MODEL_REGISTRY[self.model_tier]
-            logger.info("Downloading model '%s' from HF Hub...", repo_id)
-            model_path = _download_with_retry(repo_id, self.cache_dir)
+            if not self.quiet:
+                logger.info("Downloading model '%s' from HF Hub...", repo_id)
+            tqdm_class = _NoOpTqdm if self.quiet else None
+            model_path = _download_with_retry(
+                repo_id, self.cache_dir, tqdm_class=tqdm_class
+            )
 
         logger.info("Loading model from %s", model_path)
 

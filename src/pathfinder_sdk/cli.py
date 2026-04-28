@@ -94,6 +94,11 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Inference device (default: auto-detect CPU).",
     )
+    rank_parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress progress output during model download.",
+    )
 
     return parser
 
@@ -120,6 +125,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             cache_dir=args.cache_dir,
             fetcher=args.fetcher,
             device=args.device,
+            quiet=args.quiet,
         )
 
         result = sdk.rank_candidates(

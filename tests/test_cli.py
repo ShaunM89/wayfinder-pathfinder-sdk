@@ -100,7 +100,12 @@ class TestMain:
 
         assert code == 0
         mock_pathfinder_class.assert_called_once_with(
-            model="high", top_n=10, cache_dir="/tmp/pf", fetcher="curl", device=None
+            model="high",
+            top_n=10,
+            cache_dir="/tmp/pf",
+            fetcher="curl",
+            device=None,
+            quiet=False,
         )
         mock_pf.rank_candidates.assert_called_once_with(
             url="https://example.com", task_description="Find tutorial", top_n=10
