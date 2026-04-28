@@ -32,6 +32,9 @@ jobs:
       - name: Format check with black
         run: black --check src tests
 
+      - name: Type check with mypy
+        run: mypy src/pathfinder_sdk
+
       - name: Test with pytest
         run: pytest --tb=short -q
 
