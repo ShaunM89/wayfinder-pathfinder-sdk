@@ -68,9 +68,11 @@ class Pathfinder:
             RankingResult with ranked candidates, scores, and metadata.
         """
         top_n = top_n if top_n is not None else self.top_n
-        start_time = time.perf_counter()
+        overall_start = time.perf_counter()
+        stage_latencies: dict[str, float] = {}
 
         # Stage 0: Fetch (optional)
+        fetch_start = time.perf_counter()
         if candidates is None:
             if self._fetcher is None:
                 raise ValueError(
@@ -81,30 +83,63 @@ class Pathfinder:
             raw_candidates = self._fetcher.fetch(url)
         else:
             raw_candidates = candidates
+        stage_latencies["fetch_ms"] = round(
+            (time.perf_counter() - fetch_start) * 1000, 2
+        )
 
         total_links = len(raw_candidates)
+        logger.debug(
+            "Fetched %d raw links from %s (%.2f ms)",
+            total_links, url, stage_latencies["fetch_ms"],
+        )
 
         # Stage 1: Heuristic Filter
+        filter_start = time.perf_counter()
         filtered = self._filter.filter(raw_candidates, base_url=url)
+        stage_latencies["filter_ms"] = round(
+            (time.perf_counter() - filter_start) * 1000, 2
+        )
+
         total_after_filter = len(filtered)
+        logger.debug(
+            "Filtered %d → %d links (%.2f ms)",
+            total_links, total_after_filter, stage_latencies["filter_ms"],
+        )
 
         # Stage 2: Bi-Encoder Ranking
+        rank_start = time.perf_counter()
         ranked = self._ranker.rank(
             task=task_description,
             candidates=filtered,
             top_n=top_n,
         )
+        stage_latencies["rank_ms"] = round(
+            (time.perf_counter() - rank_start) * 1000, 2
+        )
 
-        latency_ms = (time.perf_counter() - start_time) * 1000
+        latency_ms = round((time.perf_counter() - overall_start) * 1000, 2)
+
+        logger.info(
+            "Ranked %d candidates for '%s...' on %s — "
+            "total=%.2f ms (fetch=%.2f, filter=%.2f, rank=%.2f)",
+            len(ranked),
+            task_description[:40],
+            url,
+            latency_ms,
+            stage_latencies["fetch_ms"],
+            stage_latencies["filter_ms"],
+            stage_latencies["rank_ms"],
+        )
 
         return RankingResult(
             task_description=task_description,
             source_url=url,
             candidates=ranked,
-            latency_ms=round(latency_ms, 2),
+            latency_ms=latency_ms,
             total_links_analyzed=total_links,
             total_links_after_filter=total_after_filter,
             model_tier=self.model_tier,
+            metadata={"stage_latencies": stage_latencies},
         )
 
     def unload(self) -> None:

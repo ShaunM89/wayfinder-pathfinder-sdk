@@ -52,6 +52,7 @@ class RankingResult(BaseModel):
         total_links_analyzed: Number of links before filtering.
         total_links_after_filter: Number of links after heuristic filtering.
         model_tier: Which model tier was used (default, high, ultra).
+        metadata: Optional extra metadata, including per-stage latency.
     """
 
     task_description: str
@@ -61,6 +62,7 @@ class RankingResult(BaseModel):
     total_links_analyzed: int = Field(..., ge=0)
     total_links_after_filter: int = Field(..., ge=0)
     model_tier: str
+    metadata: dict = Field(default_factory=dict)
 
     def to_json(self) -> str:
         """JSON serialization for API responses or LLM prompts."""

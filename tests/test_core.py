@@ -46,6 +46,16 @@ class TestRankCandidates:
         assert result.model_tier == "default"
         mock_ranker.rank.assert_called_once()
 
+        # Stage latencies populated (fetch should be ~0 since no fetch happened)
+        assert "stage_latencies" in result.metadata
+        sl = result.metadata["stage_latencies"]
+        assert "fetch_ms" in sl
+        assert "filter_ms" in sl
+        assert "rank_ms" in sl
+        assert sl["fetch_ms"] >= 0
+        assert sl["filter_ms"] >= 0
+        assert sl["rank_ms"] >= 0
+
     @patch("pathfinder_sdk.core.BiEncoderRanker")
     @patch("pathfinder_sdk.core.Fetcher")
     def test_fetch_when_no_candidates(self, mock_fetcher_class, mock_ranker_class):
