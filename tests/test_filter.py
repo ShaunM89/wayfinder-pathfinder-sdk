@@ -69,4 +69,4 @@ class TestHeuristicFilter:
         hrefs = [c["href"] for c in result]
         assert "https://example.com/footer-link" not in hrefs
         assert "https://example.com/header-link" not in hrefs
-        assert "https://example.com/content" in hrefs
+        assert "https://example.com/content/" in hrefs

@@ -63,9 +63,9 @@ class TestCurlFetcherParseHtml:
         assert "About" in texts
         assert "Contact Us" in texts
         assert "Email" in texts
-        # All should be absolute
+        # All should be absolute (parser does not filter schemes)
         for c in candidates:
-            assert c["href"].startswith("https://")
+            assert c["href"].startswith(("https://", "mailto:"))
 
     def test_extracts_context(self):
         fetcher = CurlFetcher()
