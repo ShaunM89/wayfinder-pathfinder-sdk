@@ -166,9 +166,20 @@ class CurlFetcher:
 
                 # Block statuses — don't retry, fail fast
                 if response.status_code in _BLOCK_STATUSES:
+                    hint = ""
+                    if response.status_code == 403:
+                        hint = (
+                            " The site may be blocking automated requests. "
+                            "Try: fetcher='playwright'"
+                        )
+                    elif response.status_code == 429:
+                        hint = (
+                            " Rate limit hit. Try again later or reduce"
+                            " request frequency."
+                        )
                     raise FetchError(
                         f"HTTP {response.status_code} for {url} "
-                        f"(blocked or rate-limited)"
+                        f"(blocked or rate-limited).{hint}"
                     )
 
                 # Server errors — retry via RuntimeError (caught below)
@@ -324,9 +335,15 @@ class PlaywrightFetcher:
         if response is not None:
             status = response.status
             if status in _PLAYWRIGHT_BLOCK_STATUSES:
+                hint = ""
+                if status == 429:
+                    hint = (
+                        " Rate limit hit. Try again later or reduce"
+                        " request frequency."
+                    )
                 raise FetchError(
                     f"Playwright received HTTP {status} for {url} "
-                    f"(blocked or rate-limited)"
+                    f"(blocked or rate-limited).{hint}"
                 )
             if status in _PLAYWRIGHT_ERROR_STATUSES:
                 raise FetchError(

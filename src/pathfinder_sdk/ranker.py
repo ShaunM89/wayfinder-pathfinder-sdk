@@ -20,6 +20,7 @@ from pathfinder_sdk.models import (
     ModelLoadError,
     ModelNotFoundError,
 )
+from pathfinder_sdk.utils import did_you_mean
 
 logger = logging.getLogger(__name__)
 
@@ -103,10 +104,13 @@ class BiEncoderRanker:
         local_model_path: str | None = None,
     ):
         if model_tier not in _MODEL_REGISTRY:
-            raise ModelNotFoundError(
-                f"Unknown model tier: {model_tier}. "
-                f"Available: {list(_MODEL_REGISTRY.keys())}"
-            )
+            valid = list(_MODEL_REGISTRY.keys())
+            suggestion = did_you_mean(model_tier, valid)
+            msg = f'Unknown model tier: "{model_tier}". '
+            if suggestion:
+                msg += f'Did you mean "{suggestion}"? '
+            msg += f"Valid tiers: {', '.join(valid)}."
+            raise ModelNotFoundError(msg)
         self.model_tier = model_tier
         self.cache_dir = str(Path(cache_dir).expanduser())
         self.device = device or "cpu"
@@ -165,10 +169,16 @@ class BiEncoderRanker:
             self._backend = "pytorch"
             logger.info("Model loaded with PyTorch backend")
         except Exception as pt_exc:
-            raise ModelLoadError(
+            msg = (
                 f"Failed to load model from {model_path}. "
-                f"ONNX error: {onnx_error}; PyTorch error: {pt_exc}"
-            ) from pt_exc
+                f"ONNX error: {onnx_error}; PyTorch error: {pt_exc}\n"
+                f"Hints:\n"
+                f"  - Ensure model files are complete "
+                f"(re-download with rm -rf {self.cache_dir})\n"
+                f"  - ONNX backend: pip install pathfinder-sdk[onnx]\n"
+                f"  - PyTorch backend should work out of the box"
+            )
+            raise ModelLoadError(msg) from pt_exc
 
     def rank(
         self,
