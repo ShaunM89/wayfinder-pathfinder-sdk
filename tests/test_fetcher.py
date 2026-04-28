@@ -289,6 +289,23 @@ class TestFetcherDispatcher:
 
 
 class TestPlaywrightFetcher:
+    @pytest.fixture(autouse=True)
+    def _inject_fake_playwright_module(self):
+        """Inject a fake playwright module so @patch targets resolve."""
+        import sys
+        import types
+
+        fake_playwright = types.ModuleType("playwright")
+        fake_sync_api = types.ModuleType("playwright.sync_api")
+        fake_sync_api.sync_playwright = MagicMock()
+        fake_sync_api.TimeoutError = TimeoutError
+        fake_playwright.sync_api = fake_sync_api
+        sys.modules["playwright"] = fake_playwright
+        sys.modules["playwright.sync_api"] = fake_sync_api
+        yield
+        sys.modules.pop("playwright.sync_api", None)
+        sys.modules.pop("playwright", None)
+
     def test_missing_playwright_raises(self):
         """Playwright import fails — should raise FetchError."""
         real_import = __builtins__["__import__"]
