@@ -1,0 +1,166 @@
+[
+  {
+    "step": 1,
+    "url": "https://docs.python.org/3/",
+    "candidates": [
+      {
+        "rank": 1,
+        "href": "https://wiki.python.org/moin/BeginnersGuide/",
+        "text": "Beginner's Guide",
+        "score": 0.8587474822998047,
+        "context_snippet": "Beginner's Guide"
+      },
+      {
+        "rank": 2,
+        "href": "https://docs.python.org/3/tutorial/index.html",
+        "text": "Tutorial",
+        "score": 0.8549816608428955,
+        "context_snippet": "Tutorial Start here: a tour of Python's syntax and features"
+      },
+      {
+        "rank": 3,
+        "href": "https://devguide.python.org/",
+        "text": "Python Developer\u2019s Guide",
+        "score": 0.7310267686843872,
+        "context_snippet": "Python Developer\u2019s Guide"
+      },
+      {
+        "rank": 4,
+        "href": "https://docs.python.org/3/glossary.html",
+        "text": "Glossary",
+        "score": 0.6513265371322632,
+        "context_snippet": "Glossary Terms explained"
+      },
+      {
+        "rank": 5,
+        "href": "https://docs.python.org/3/",
+        "text": "3.14.4 Documentation",
+        "score": 0.6454676389694214,
+        "context_snippet": "3.14.4 Documentation \u00bb"
+      },
+      {
+        "rank": 6,
+        "href": "https://docs.python.org/3/about.html",
+        "text": "About the documentation",
+        "score": 0.6291112303733826,
+        "context_snippet": "About the documentation"
+      },
+      {
+        "rank": 7,
+        "href": "https://docs.python.org/3/search.html",
+        "text": "Search page",
+        "score": 0.6264002323150635,
+        "context_snippet": "Search page Search this documentation"
+      },
+      {
+        "rank": 8,
+        "href": "https://docs.python.org/3/download.html",
+        "text": "Download these documents",
+        "score": 0.6257473230361938,
+        "context_snippet": "Download these documents"
+      },
+      {
+        "rank": 9,
+        "href": "https://docs.python.org/3/using/index.html",
+        "text": "Python setup and usage",
+        "score": 0.6155924797058105,
+        "context_snippet": "Python setup and usage How to install, configure, and use Python"
+      },
+      {
+        "rank": 10,
+        "href": "https://docs.python.org/3/contents.html",
+        "text": "Complete table of contents",
+        "score": 0.6134642362594604,
+        "context_snippet": "Complete table of contents Lists all sections and subsections"
+      }
+    ],
+    "decision": {
+      "href": "https://docs.python.org/3/tutorial/index.html",
+      "reason": "This link leads to the official Python Tutorial, which is explicitly described as a 'tour of Python's syntax and features' and is the standard starting point for beginners learning the language.",
+      "done": false
+    },
+    "latency_ms": 767.22
+  },
+  {
+    "step": 2,
+    "url": "https://docs.python.org/3/tutorial/index.html",
+    "candidates": [
+      {
+        "rank": 1,
+        "href": "https://docs.python.org/3/tutorial/introduction.html",
+        "text": "3. An Informal Introduction to Python",
+        "score": 0.7012337446212769,
+        "context_snippet": "3. An Informal Introduction to Python 3.1. Using Python as a Calculator 3.1.1. Numbers 3.1.2. Text 3.1.3. Lists 3.2. First Steps Towards "
+      },
+      {
+        "rank": 2,
+        "href": "https://docs.python.org/3/c-api/index.html",
+        "text": "Python/C API reference manual",
+        "score": 0.6581944227218628,
+        "context_snippet": "language.  To write\nextensions in C or C++, read Extending and Embedding the Python Interpreter and Python/C API reference manual . There are also several books covering Python in depth."
+      },
+      {
+        "rank": 3,
+        "href": "https://docs.python.org/3/glossary.html",
+        "text": "Glossary",
+        "score": 0.6513265371322632,
+        "context_snippet": "The Glossary is also worth going through."
+      },
+      {
+        "rank": 4,
+        "href": "https://docs.python.org/3/reference/index.html",
+        "text": "The Python Language Reference",
+        "score": 0.649455189704895,
+        "context_snippet": "For a description of standard objects and modules, see The Python Standard Library . The Python Language Reference gives a more formal definition of the language.  To write\nextensions in C or C++, read Extending an"
+      },
+      {
+        "rank": 5,
+        "href": "https://docs.python.org/3/index.html",
+        "text": "3.14.4 Documentation",
+        "score": 0.6454676389694214,
+        "context_snippet": "3.14.4 Documentation \u00bb"
+      },
+      {
+        "rank": 6,
+        "href": "https://docs.python.org/3/tutorial/appetite.html",
+        "text": "1. Whetting Your Appetite",
+        "score": 0.6363481879234314,
+        "context_snippet": "1. Whetting Your Appetite"
+      },
+      {
+        "rank": 7,
+        "href": "https://docs.python.org/3/tutorial/classes.html",
+        "text": "9. Classes",
+        "score": 0.6275109648704529,
+        "context_snippet": "9. Classes 9.1. A Word About Names and Objects 9.2. Python Scopes and Namespaces 9.2.1. Scopes and Namespaces "
+      },
+      {
+        "rank": 8,
+        "href": "https://docs.python.org/3/tutorial/controlflow.html",
+        "text": "4. More Control Flow Tools",
+        "score": 0.6237084865570068,
+        "context_snippet": "4. More Control Flow Tools 4.1. if Statements 4.2. for Statements 4.3. The range() Function 4.4. break and continue Statements"
+      },
+      {
+        "rank": 9,
+        "href": "https://docs.python.org/3/library/index.html",
+        "text": "The Python Standard Library",
+        "score": 0.6225587129592896,
+        "context_snippet": "For a description of standard objects and modules, see The Python Standard Library . The Python Language Reference gives a more formal definition of the language.  To write\nextension"
+      },
+      {
+        "rank": 10,
+        "href": "https://docs.python.org/3/improve-page-nojs.html",
+        "text": "Improve this page",
+        "score": 0.6219145059585571,
+        "context_snippet": "Improve this page"
+      }
+    ],
+    "decision": {
+      "href": "https://docs.python.org/3/tutorial/introduction.html",
+      "reason": "This link leads to the 'An Informal Introduction to Python' section of the official tutorial, which is the standard starting point for beginners learning Python.",
+      "done": false
+    },
+    "latency_ms": 144.42
+  }
+]
