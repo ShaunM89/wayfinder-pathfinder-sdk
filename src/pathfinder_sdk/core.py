@@ -208,6 +208,43 @@ class Pathfinder:
 
         return results
 
+    def rank_stream(
+        self,
+        url: str,
+        task_description: str,
+        candidates: list[dict] | None = None,
+        top_n: int | None = None,
+        min_score: float | None = None,
+    ):
+        """Yield ranked candidates one at a time, highest score first.
+
+        Performs the same fetch → filter → rank pipeline as
+        rank_candidates(), but yields each result incrementally.
+        Useful for large candidate sets where you want early results
+        without waiting for the full ranking to complete.
+
+        Args:
+            url: Starting page URL.
+            task_description: Natural-language task.
+            candidates: Optional pre-extracted links.
+            top_n: Maximum candidates to yield.
+            min_score: Stop yielding if score drops below this threshold.
+
+        Yields:
+            CandidateRecommendation objects in rank order.
+        """
+        result = self._rank_single(
+            url=url,
+            task_description=task_description,
+            candidates=candidates,
+            top_n=top_n,
+        )
+
+        for cand in result.candidates:
+            if min_score is not None and cand.score < min_score:
+                break
+            yield cand
+
     async def rank_candidates_async(
         self,
         url: str,
