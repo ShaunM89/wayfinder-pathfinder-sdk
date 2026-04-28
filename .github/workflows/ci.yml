@@ -38,6 +38,13 @@ jobs:
       - name: Test with pytest
         run: pytest --tb=short -q
 
+      - name: Validate examples are syntactically valid
+        run: |
+          python -m py_compile examples/01_basic_ranking.py
+          python -m py_compile examples/02_with_llm_agent.py
+          python -m py_compile examples/03_batch_processing.py
+          python -m py_compile examples/04_custom_filter.py
+
   build:
     runs-on: ubuntu-latest
     needs: test

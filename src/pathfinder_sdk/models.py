@@ -40,6 +40,10 @@ class CandidateRecommendation(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0)
     context_snippet: str | None = None
 
+    def to_dict(self) -> dict:
+        """Dict serialization for programmatic use."""
+        return self.model_dump()
+
 
 class RankingResult(BaseModel):
     """Structured output from Pathfinder.rank_candidates().

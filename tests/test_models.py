@@ -48,6 +48,16 @@ class TestCandidateRecommendation:
         with pytest.raises(ValueError):
             CandidateRecommendation(rank=1, href="x", text="x", score=1.5)
 
+    def test_to_dict(self):
+        cand = CandidateRecommendation(
+            rank=1, href="https://example.com", text="Example", score=0.95
+        )
+        d = cand.to_dict()
+        assert isinstance(d, dict)
+        assert d["rank"] == 1
+        assert d["href"] == "https://example.com"
+        assert d["score"] == 0.95
+
 
 class TestRankingResult:
     def test_basic_creation(self):
