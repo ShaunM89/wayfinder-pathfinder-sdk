@@ -1,0 +1,38 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.egg-info
+.eggs
+*.egg
+
+# Virtual environments
+.venv
+venv
+
+# IDE
+.vscode
+.idea
+
+# Tests and docs (not needed in image)
+tests/
+docs/
+scripts/
+examples/
+
+# Build artifacts
+dist/
+build/
+
+# CI/CD
+.github/
+.pre-commit-config.yaml
+
+# Misc
+*.md
+!README.md
+CONTRIBUTING.md
