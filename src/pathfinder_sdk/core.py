@@ -7,6 +7,7 @@ import asyncio
 import logging
 import time
 
+from pathfinder_sdk.config import load_config
 from pathfinder_sdk.fetcher import Fetcher
 from pathfinder_sdk.filter import HeuristicFilter
 from pathfinder_sdk.metrics import get_metrics_collector
@@ -41,21 +42,34 @@ class Pathfinder:
         cache=None,
         tracer=None,
         metrics=None,
+        config_path: str | None = None,
+        **kwargs,
     ):
-        self.model_tier = model
-        self.top_n = top_n
-        self.cache_dir = cache_dir
-        self.fetcher_backend = fetcher
-        self.device = device
+        # Load config from file + env vars, then merge with kwargs
+        file_config = load_config(path=config_path)
+        overrides = {k: v for k, v in kwargs.items() if v is not None}
+
+        self.model_tier = overrides.get("model", file_config.get("model", model))
+        self.top_n = overrides.get("top_n", file_config.get("top_n", top_n))
+        self.cache_dir = overrides.get(
+            "cache_dir", file_config.get("cache_dir", cache_dir)
+        )
+        self.fetcher_backend = overrides.get(
+            "fetcher", file_config.get("fetcher", fetcher)
+        )
+        self.device = overrides.get("device", file_config.get("device", device))
+        quiet = overrides.get("quiet", file_config.get("quiet", quiet))
         self._tracer = tracer if tracer is not None else get_tracer()
         self._metrics = metrics if metrics is not None else get_metrics_collector()
 
-        self._fetcher = Fetcher(backend=fetcher) if fetcher else None
+        self._fetcher = (
+            Fetcher(backend=self.fetcher_backend) if self.fetcher_backend else None
+        )
         self._filter = HeuristicFilter()
         self._ranker = BiEncoderRanker(
-            model_tier=model,
-            cache_dir=cache_dir,
-            device=device,
+            model_tier=self.model_tier,
+            cache_dir=self.cache_dir,
+            device=self.device,
             quiet=quiet,
             cache=cache,
         )

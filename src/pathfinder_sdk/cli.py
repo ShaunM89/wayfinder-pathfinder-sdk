@@ -99,6 +99,11 @@ def _build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Suppress progress output during model download.",
     )
+    rank_parser.add_argument(
+        "--config",
+        default=None,
+        help="Path to config file (YAML or JSON).",
+    )
 
     return parser
 
@@ -126,6 +131,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             fetcher=args.fetcher,
             device=args.device,
             quiet=args.quiet,
+            config_path=args.config,
         )
 
         result = sdk.rank_candidates(

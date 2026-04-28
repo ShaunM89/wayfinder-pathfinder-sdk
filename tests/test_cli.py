@@ -106,6 +106,7 @@ class TestMain:
             fetcher="curl",
             device=None,
             quiet=False,
+            config_path=None,
         )
         mock_pf.rank_candidates.assert_called_once_with(
             url="https://example.com", task_description="Find tutorial", top_n=10
