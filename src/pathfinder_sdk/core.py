@@ -36,6 +36,7 @@ class Pathfinder:
         fetcher: str | None = "auto",
         device: str | None = None,
         quiet: bool = False,
+        cache=None,
     ):
         self.model_tier = model
         self.top_n = top_n
@@ -50,6 +51,7 @@ class Pathfinder:
             cache_dir=cache_dir,
             device=device,
             quiet=quiet,
+            cache=cache,
         )
 
     def rank_candidates(

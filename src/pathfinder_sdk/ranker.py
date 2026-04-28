@@ -10,11 +10,11 @@ import time
 from pathlib import Path
 
 import numpy as np
-from cachetools import LRUCache
 from huggingface_hub import snapshot_download
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity as sklearn_cosine_similarity
 
+from pathfinder_sdk.cache import InMemoryEmbeddingCache
 from pathfinder_sdk.models import (
     CandidateRecommendation,
     ModelLoadError,
@@ -129,6 +129,7 @@ class BiEncoderRanker:
         device: str | None = None,
         local_model_path: str | None = None,
         quiet: bool = False,
+        cache=None,
     ):
         if model_tier not in _MODEL_REGISTRY:
             valid = list(_MODEL_REGISTRY.keys())
@@ -143,10 +144,9 @@ class BiEncoderRanker:
         self.device = device or "cpu"
         self.local_model_path = local_model_path
         self.quiet = quiet
+        self._cache = cache if cache is not None else InMemoryEmbeddingCache()
         self._model: SentenceTransformer | None = None
         self._backend: str = "pytorch"  # Tracks which backend is active
-        # 10_000 entries ≈ 15 MB for 384-dim float32 embeddings
-        self._cache: LRUCache = LRUCache(maxsize=10000)
         self._lock = threading.Lock()
 
     @property
@@ -221,6 +221,7 @@ class BiEncoderRanker:
         """Rank candidates by cosine similarity to the task description.
 
         Uses batch encoding for all texts in a single forward pass.
+        Caches individual embeddings for reuse across calls.
 
         Args:
             task: Natural language task description.
@@ -236,13 +237,26 @@ class BiEncoderRanker:
         # Prepare texts: task + all candidate anchor texts
         texts = [task] + [c.get("text", "").strip() for c in candidates]
 
-        # Batch encode (CRITICAL: single forward pass)
-        embeddings = self.model.encode(
-            texts,
-            batch_size=32,
-            convert_to_numpy=True,
-            show_progress_bar=False,
-        )
+        # Try to retrieve all embeddings from cache
+        cached_embeddings: list[np.ndarray | None] = []
+        for text in texts:
+            emb = self._cache.get(text)
+            cached_embeddings.append(emb)
+
+        if all(e is not None for e in cached_embeddings):
+            # Cache hit for all texts — skip model inference
+            embeddings = np.stack(cached_embeddings)
+        else:
+            # Batch encode (CRITICAL: single forward pass)
+            embeddings = self.model.encode(
+                texts,
+                batch_size=32,
+                convert_to_numpy=True,
+                show_progress_bar=False,
+            )
+            # Store individual embeddings in cache
+            for text, emb in zip(texts, embeddings):
+                self._cache.put(text, emb)
 
         task_emb = embeddings[0]
         cand_embs = embeddings[1:]
