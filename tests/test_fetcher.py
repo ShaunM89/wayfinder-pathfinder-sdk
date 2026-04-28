@@ -299,10 +299,17 @@ class TestPlaywrightFetcher:
         fake_sync_api = types.ModuleType("playwright.sync_api")
         fake_sync_api.sync_playwright = MagicMock()
         fake_sync_api.TimeoutError = TimeoutError
+
+        fake_async_api = types.ModuleType("playwright.async_api")
+        fake_async_api.async_playwright = MagicMock()
+        fake_async_api.TimeoutError = TimeoutError
+        fake_playwright.async_api = fake_async_api
+        sys.modules["playwright.async_api"] = fake_async_api
         fake_playwright.sync_api = fake_sync_api
         sys.modules["playwright"] = fake_playwright
         sys.modules["playwright.sync_api"] = fake_sync_api
         yield
+        sys.modules.pop("playwright.async_api", None)
         sys.modules.pop("playwright.sync_api", None)
         sys.modules.pop("playwright", None)
 

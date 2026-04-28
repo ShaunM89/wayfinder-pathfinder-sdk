@@ -6,6 +6,7 @@ Optional fallback: Playwright headless shell
 Adapted from compass_core.crawler.parser, fetcher, and dual_fetcher.
 """
 
+import asyncio
 import logging
 import time
 from urllib.parse import urljoin
@@ -213,6 +214,18 @@ class CurlFetcher:
             f"All {self.max_retries} fetch attempts failed for {url}: {last_error}"
         )
 
+    async def fetch_async(self, url: str) -> list[dict]:
+        """Async wrapper around fetch() using a thread executor.
+
+        Args:
+            url: URL to fetch.
+
+        Returns:
+            List of candidate link dicts.
+        """
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(None, self.fetch, url)
+
     def _parse_html(self, html: str, base_url: str) -> list[dict]:
         """Parse HTML and extract candidate links."""
         soup = BeautifulSoup(html, "html.parser")
@@ -352,6 +365,73 @@ class PlaywrightFetcher:
 
         return self._parse_html(html, final_url)
 
+    async def fetch_async(self, url: str) -> list[dict]:
+        """Fetch URL with async Playwright and extract candidate links.
+
+        Args:
+            url: URL to fetch.
+
+        Returns:
+            List of candidate link dicts.
+
+        Raises:
+            FetchError: If Playwright is not installed, browser missing,
+                page blocked, or navigation fails.
+        """
+        try:
+            from playwright.async_api import (  # noqa: I001
+                TimeoutError as PWTimeout,
+                async_playwright,
+            )
+        except ImportError as exc:
+            raise FetchError(
+                "Playwright is not installed. "
+                "Install it with: pip install pathfinder-sdk[playwright]"
+            ) from exc
+
+        try:
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(headless=self.headless)
+                context = await browser.new_context(user_agent=self.user_agent)
+                page = await context.new_page()
+
+                try:
+                    response = await page.goto(
+                        url,
+                        timeout=self.timeout,
+                        wait_until="domcontentloaded",
+                    )
+                    final_url = page.url
+                    html = await page.content()
+                finally:
+                    await context.close()
+                    await browser.close()
+        except PWTimeout as exc:
+            raise FetchError(f"Playwright timeout for {url}") from exc
+        except Exception as exc:
+            raise FetchError(f"Playwright error for {url}: {exc}") from exc
+
+        # Playwright does NOT throw on 4xx/5xx — check explicitly
+        if response is not None:
+            status = response.status
+            if status in _PLAYWRIGHT_BLOCK_STATUSES:
+                hint = ""
+                if status == 429:
+                    hint = (
+                        " Rate limit hit. Try again later or reduce"
+                        " request frequency."
+                    )
+                raise FetchError(
+                    f"Playwright received HTTP {status} for {url} "
+                    f"(blocked or rate-limited).{hint}"
+                )
+            if status in _PLAYWRIGHT_ERROR_STATUSES:
+                raise FetchError(
+                    f"Playwright received HTTP {status} for {url} " f"(server error)"
+                )
+
+        return self._parse_html(html, final_url)
+
     def _parse_html(self, html: str, base_url: str) -> list[dict]:
         """Parse HTML and extract candidate links."""
         # Reuse CurlFetcher's parser logic
@@ -414,6 +494,47 @@ class Fetcher:
                     candidates = self._playwright.fetch(url)
                 except FetchError:
                     logger.warning("Playwright fallback failed for %s", url)
+            return candidates
+        if self.backend is None:
+            return []
+        raise ValueError(f"Unknown fetcher backend: {self.backend}")
+
+    async def fetch_async(self, url: str) -> list[dict]:
+        """Async fetch URL and return candidate links.
+
+        Args:
+            url: URL to fetch.
+
+        Returns:
+            List of candidate link dicts.
+        """
+        if self.backend == "curl":
+            return await self._curl.fetch_async(url)
+        if self.backend == "playwright":
+            if self._playwright is None:
+                self._playwright = PlaywrightFetcher()
+            return await self._playwright.fetch_async(url)
+        if self.backend == "auto":
+            try:
+                candidates = await self._curl.fetch_async(url)
+            except FetchError as exc:
+                logger.info("curl_cffi async failed for %s: %s", url, exc)
+                candidates = []
+
+            if len(candidates) < self.min_links_for_curl:
+                logger.info(
+                    "curl_cffi async returned %d links for %s (threshold=%d), "
+                    "trying Playwright",
+                    len(candidates),
+                    url,
+                    self.min_links_for_curl,
+                )
+                if self._playwright is None:
+                    self._playwright = PlaywrightFetcher()
+                try:
+                    candidates = await self._playwright.fetch_async(url)
+                except FetchError:
+                    logger.warning("Playwright async fallback failed for %s", url)
             return candidates
         if self.backend is None:
             return []
