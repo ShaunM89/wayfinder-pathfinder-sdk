@@ -26,14 +26,65 @@ _MODEL_REGISTRY: dict[str, str] = {
     "ultra": "perplexity/pplx-embed-context-v1-4b",
 }
 
+# Retry config for HF Hub downloads
+_DOWNLOAD_MAX_RETRIES = 3
+_DOWNLOAD_RETRY_DELAY = 2.0
+
+
+def _download_with_retry(
+    repo_id: str,
+    cache_dir: str,
+    max_retries: int = _DOWNLOAD_MAX_RETRIES,
+    base_delay: float = _DOWNLOAD_RETRY_DELAY,
+) -> str:
+    """Download model from HF Hub with exponential backoff retries.
+
+    Args:
+        repo_id: HuggingFace Hub repository ID.
+        cache_dir: Local cache directory.
+        max_retries: Maximum retry attempts.
+        base_delay: Base delay in seconds between retries.
+
+    Returns:
+        Local path to downloaded model.
+
+    Raises:
+        ModelLoadError: If all retries are exhausted.
+    """
+    last_error: Exception | None = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            return snapshot_download(
+                repo_id=repo_id,
+                cache_dir=cache_dir,
+                local_files_only=False,
+            )
+        except Exception as exc:
+            last_error = exc
+            logger.warning(
+                "Model download attempt %d/%d failed for %s: %s",
+                attempt, max_retries, repo_id, exc,
+            )
+            if attempt < max_retries:
+                sleep_time = base_delay * (2 ** (attempt - 1))
+                time.sleep(sleep_time)
+
+    raise ModelLoadError(
+        f"Failed to download model '{repo_id}' after {max_retries} attempts: {last_error}"
+    )
+
 
 class BiEncoderRanker:
     """Ranks candidate links using bi-encoder cosine similarity.
+
+    Attempts ONNX Runtime backend first (faster CPU inference), falling
+    back to PyTorch via sentence-transformers if ONNX is unavailable.
 
     Args:
         model_tier: One of "default", "high", "ultra".
         cache_dir: Directory for HF Hub model cache.
         device: Inference device ("cpu", "cuda", or None for auto).
+        local_model_path: Optional local path to bypass HF Hub download.
     """
 
     def __init__(
@@ -41,6 +92,7 @@ class BiEncoderRanker:
         model_tier: str = "default",
         cache_dir: str = "~/.cache/pathfinder",
         device: str | None = None,
+        local_model_path: str | None = None,
     ):
         if model_tier not in _MODEL_REGISTRY:
             raise ModelNotFoundError(
@@ -50,7 +102,9 @@ class BiEncoderRanker:
         self.model_tier = model_tier
         self.cache_dir = str(Path(cache_dir).expanduser())
         self.device = device or "cpu"
+        self.local_model_path = local_model_path
         self._model: SentenceTransformer | None = None
+        self._backend: str = "pytorch"  # Tracks which backend is active
         # 10_000 entries ≈ 15 MB for 384-dim float32 embeddings
         self._cache: LRUCache = LRUCache(maxsize=10000)
         self._lock = threading.Lock()
@@ -62,28 +116,53 @@ class BiEncoderRanker:
             self._load_model()
         return self._model
 
+    @property
+    def backend(self) -> str:
+        """Return active inference backend ('onnx' or 'pytorch')."""
+        return self._backend
+
     def _load_model(self) -> None:
-        """Download model from HF Hub and load into memory."""
-        repo_id = _MODEL_REGISTRY[self.model_tier]
-        logger.info("Downloading model '%s' from HF Hub...", repo_id)
-        try:
-            model_path = snapshot_download(
-                repo_id=repo_id,
-                cache_dir=self.cache_dir,
-                local_files_only=False,
-            )
-        except Exception as exc:
-            raise ModelLoadError(
-                f"Failed to download model '{repo_id}': {exc}"
-            ) from exc
+        """Download model from HF Hub and load into memory.
+
+        Tries ONNX Runtime first, then falls back to PyTorch.
+        """
+        if self.local_model_path:
+            model_path = self.local_model_path
+            logger.info("Using local model path: %s", model_path)
+        else:
+            repo_id = _MODEL_REGISTRY[self.model_tier]
+            logger.info("Downloading model '%s' from HF Hub...", repo_id)
+            model_path = _download_with_retry(repo_id, self.cache_dir)
 
         logger.info("Loading model from %s", model_path)
+
+        # Attempt 1: ONNX Runtime backend (faster CPU inference)
+        onnx_error: Exception | None = None
+        try:
+            self._model = SentenceTransformer(
+                model_path,
+                device=self.device,
+                backend="onnx",
+            )
+            self._backend = "onnx"
+            logger.info("Model loaded with ONNX Runtime backend")
+            return
+        except Exception as exc:
+            onnx_error = exc
+            logger.warning(
+                "ONNX backend failed (%s), falling back to PyTorch", exc
+            )
+
+        # Attempt 2: PyTorch fallback (always works if model files are present)
         try:
             self._model = SentenceTransformer(model_path, device=self.device)
-        except Exception as exc:
+            self._backend = "pytorch"
+            logger.info("Model loaded with PyTorch backend")
+        except Exception as pt_exc:
             raise ModelLoadError(
-                f"Failed to load model from {model_path}: {exc}"
-            ) from exc
+                f"Failed to load model from {model_path}. "
+                f"ONNX error: {onnx_error}; PyTorch error: {pt_exc}"
+            ) from pt_exc
 
     def rank(
         self,
@@ -144,6 +223,7 @@ class BiEncoderRanker:
     def unload(self) -> None:
         """Unload model from memory to free RAM."""
         self._model = None
+        self._backend = "pytorch"
 
     def _get_embedding(self, text: str) -> np.ndarray:
         """Get embedding for a single text with caching."""
