@@ -70,6 +70,21 @@ class Pathfinder:
         Returns:
             RankingResult with ranked candidates, scores, and metadata.
         """
+        return self._rank_single(
+            url=url,
+            task_description=task_description,
+            candidates=candidates,
+            top_n=top_n,
+        )
+
+    def _rank_single(
+        self,
+        url: str,
+        task_description: str,
+        candidates: list[dict] | None = None,
+        top_n: int | None = None,
+    ) -> RankingResult:
+        """Internal ranking implementation shared by sync, async, and batch."""
         top_n = top_n if top_n is not None else self.top_n
         overall_start = time.perf_counter()
         stage_latencies: dict[str, float] = {}
@@ -146,6 +161,50 @@ class Pathfinder:
             model_tier=self.model_tier,
             metadata={"stage_latencies": stage_latencies},
         )
+
+    def rank_multiple(
+        self,
+        requests: list,
+        top_n: int | None = None,
+    ) -> list[RankingResult]:
+        """Rank multiple (URL, task) pairs efficiently.
+
+        Processes requests sequentially to respect target servers.
+        The model is loaded once and reused across all requests.
+
+        Args:
+            requests: List of tuples. Each tuple is either:
+                (url, task_description) or
+                (url, task_description, candidates).
+            top_n: Override constructor default for all requests.
+
+        Returns:
+            List of RankingResult in the same order as requests.
+        """
+        if not requests:
+            return []
+
+        results: list[RankingResult] = []
+        for req in requests:
+            if len(req) == 2:
+                url, task = req
+                candidates = None
+            elif len(req) == 3:
+                url, task, candidates = req
+            else:
+                raise ValueError(
+                    "Each request must be a tuple of (url, task) or "
+                    "(url, task, candidates)"
+                )
+            result = self._rank_single(
+                url=url,
+                task_description=task,
+                candidates=candidates,
+                top_n=top_n,
+            )
+            results.append(result)
+
+        return results
 
     async def rank_candidates_async(
         self,
