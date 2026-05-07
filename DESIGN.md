@@ -618,7 +618,7 @@ version = "0.1.0"
 description = "Local ranking engine for AI navigation agents"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "onnxruntime>=1.16.0",           # CPU inference
     "transformers>=4.35.0",          # Model loading + ONNX export
@@ -637,7 +637,6 @@ mac = ["coremltools>=7.0"]           # Phase 2 CoreML
  dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
     "ruff>=0.1.0",
 ]
 ```

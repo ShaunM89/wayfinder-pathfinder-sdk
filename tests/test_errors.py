@@ -49,7 +49,7 @@ class TestModelLoadError:
         mock_st_class.side_effect = RuntimeError("ONNX failed")
 
         ranker = BiEncoderRanker(model_tier="default")
-        with pytest.raises(ModelLoadError, match="pip install"):
+        with pytest.raises(ModelLoadError, match="Hints:"):
             _ = ranker.model
 
 

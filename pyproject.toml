@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Local ranking engine for AI navigation agents"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "Shaun Myandee", email = "shaun@wayfinder.ai"},
 ]
@@ -18,7 +18,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -42,7 +41,6 @@ mac = ["coremltools>=7.0"]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
-    "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.7.0",
     "pre-commit>=3.5.0",
@@ -56,10 +54,6 @@ Issues = "https://github.com/ShaunM89/wayfinder-pathfinder-sdk/issues"
 [tool.hatch.build.targets.wheel]
 packages = ["src/pathfinder_sdk"]
 
-[tool.black]
-line-length = 88
-target-version = ['py39']
-
 [tool.ruff]
 line-length = 88
 
@@ -72,6 +66,22 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D101", "D102", "D103", "E501"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = false
+
+[[tool.mypy.overrides]]
+module = [
+    "opentelemetry.*",
+    "prometheus_client.*",
+    "playwright.*",
+    "yaml",
+    "sklearn.*",
+]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

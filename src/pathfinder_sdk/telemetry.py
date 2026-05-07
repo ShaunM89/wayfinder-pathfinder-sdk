@@ -34,7 +34,7 @@ class NoOpTracer:
         return NoOpSpan()
 
 
-def get_tracer(name: str = "pathfinder_sdk") -> Any:
+def get_tracer(name: str = "pathfinder_sdk") -> NoOpTracer | Any:
     """Get a tracer — returns OTel tracer if available, else no-op."""
     try:
         from opentelemetry import trace

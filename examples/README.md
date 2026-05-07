@@ -6,7 +6,7 @@ Copy-pasteable examples demonstrating common use cases.
 
 ```bash
 # Install the SDK
-pip install pathfinder-sdk
+pip install "git+https://github.com/ShaunM89/wayfinder-pathfinder-sdk.git"
 
 # Run any example
 python examples/01_basic_ranking.py

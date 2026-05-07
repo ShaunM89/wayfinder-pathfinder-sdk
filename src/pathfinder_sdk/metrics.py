@@ -33,7 +33,7 @@ class PrometheusMetricsCollector:
         registry: Optional prometheus_client registry. If None, uses default.
     """
 
-    def __init__(self, registry=None):
+    def __init__(self, registry=None) -> None:
         from prometheus_client import Counter, Histogram
 
         self._latency = Histogram(
@@ -80,7 +80,9 @@ class PrometheusMetricsCollector:
         self._fetch_errors.labels(status_code=str(status_code), fetcher=fetcher).inc()
 
 
-def get_metrics_collector(registry=None):
+def get_metrics_collector(
+    registry=None,
+) -> NoOpMetricsCollector | PrometheusMetricsCollector:
     """Get a metrics collector — returns Prometheus if available, else no-op."""
     import importlib.util
 

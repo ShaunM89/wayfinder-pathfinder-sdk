@@ -129,7 +129,7 @@ class BiEncoderRanker:
         device: str | None = None,
         local_model_path: str | None = None,
         quiet: bool = False,
-        cache=None,
+        cache: InMemoryEmbeddingCache | None = None,
     ):
         if model_tier not in _MODEL_REGISTRY:
             valid = list(_MODEL_REGISTRY.keys())
@@ -154,6 +154,7 @@ class BiEncoderRanker:
         """Lazy-load the sentence-transformer model."""
         if self._model is None:
             self._load_model()
+        assert self._model is not None
         return self._model
 
     @property
@@ -212,7 +213,6 @@ class BiEncoderRanker:
                 f"Hints:\n"
                 f"  - Ensure model files are complete "
                 f"(re-download with rm -rf {self.cache_dir})\n"
-                f"  - ONNX backend: pip install pathfinder-sdk[onnx]\n"
                 f"  - PyTorch backend should work out of the box"
             )
             raise ModelLoadError(msg) from pt_exc
@@ -250,7 +250,7 @@ class BiEncoderRanker:
 
         if all(e is not None for e in cached_embeddings):
             # Cache hit for all texts — skip model inference
-            embeddings = np.stack(cached_embeddings)
+            embeddings = np.stack(cached_embeddings)  # type: ignore[arg-type]
         else:
             # Batch encode (CRITICAL: single forward pass)
             embeddings = self.model.encode(
@@ -260,7 +260,7 @@ class BiEncoderRanker:
                 show_progress_bar=False,
             )
             # Store individual embeddings in cache
-            for text, emb in zip(texts, embeddings):
+            for text, emb in zip(texts, embeddings, strict=True):
                 self._cache.put(text, emb)
 
         task_emb = embeddings[0]
@@ -295,14 +295,15 @@ class BiEncoderRanker:
     def _get_embedding(self, text: str) -> np.ndarray:
         """Get embedding for a single text with caching."""
         with self._lock:
-            if text in self._cache:
-                return self._cache[text]
+            cached = self._cache.get(text)
+            if cached is not None:
+                return cached
 
         embedding = self.model.encode(
             text, convert_to_numpy=True, show_progress_bar=False
         )
 
         with self._lock:
-            self._cache[text] = embedding
+            self._cache.put(text, embedding)
 
         return embedding

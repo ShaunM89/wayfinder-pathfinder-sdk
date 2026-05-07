@@ -33,7 +33,7 @@ pytest --cov=pathfinder_sdk --cov-report=term-missing
 
 ## Code Quality
 
-We use `ruff` for linting, `black` for formatting, and `mypy` for type checking.
+We use `ruff` for linting and formatting, and `mypy` for type checking.
 These run automatically on every commit via pre-commit hooks, and in CI on every push.
 
 ```bash
@@ -41,7 +41,7 @@ These run automatically on every commit via pre-commit hooks, and in CI on every
 ruff check src tests
 
 # Manual format check
-black --check src tests
+ruff format --check src tests
 
 # Manual type check
 mypy src/pathfinder_sdk
@@ -52,7 +52,7 @@ mypy src/pathfinder_sdk
 The pre-commit configuration runs:
 - `ruff check --fix` (lint + auto-fix)
 - `ruff format` (format)
-- `black --check` (format consistency)
+- `ruff format --check` (format consistency)
 - Fast unit tests (excludes slower integration-style tests)
 
 To skip pre-commit temporarily (not recommended):
@@ -65,7 +65,7 @@ git commit --no-verify -m "your message"
 1. Create a feature branch: `git checkout -b feature/my-feature`
 2. Make your changes with tests
 3. Ensure all tests pass: `pytest`
-4. Ensure linting passes: `ruff check src tests && black --check src tests`
+4. Ensure linting passes: `ruff check src tests && ruff format --check src tests`
 5. Push and open a pull request
 
 ## Release Process

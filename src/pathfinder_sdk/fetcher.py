@@ -233,7 +233,8 @@ class CurlFetcher:
         position = 0
 
         for link_tag in soup.find_all("a", href=True):
-            href = link_tag.get("href", "").strip()
+            href_raw = link_tag.get("href", "")
+            href = href_raw.strip() if isinstance(href_raw, str) else ""
             if not href:
                 continue
 
@@ -351,8 +352,7 @@ class PlaywrightFetcher:
                 hint = ""
                 if status == 429:
                     hint = (
-                        " Rate limit hit. Try again later or reduce"
-                        " request frequency."
+                        " Rate limit hit. Try again later or reduce request frequency."
                     )
                 raise FetchError(
                     f"Playwright received HTTP {status} for {url} "
@@ -360,7 +360,7 @@ class PlaywrightFetcher:
                 )
             if status in _PLAYWRIGHT_ERROR_STATUSES:
                 raise FetchError(
-                    f"Playwright received HTTP {status} for {url} " f"(server error)"
+                    f"Playwright received HTTP {status} for {url} (server error)"
                 )
 
         return self._parse_html(html, final_url)
@@ -418,8 +418,7 @@ class PlaywrightFetcher:
                 hint = ""
                 if status == 429:
                     hint = (
-                        " Rate limit hit. Try again later or reduce"
-                        " request frequency."
+                        " Rate limit hit. Try again later or reduce request frequency."
                     )
                 raise FetchError(
                     f"Playwright received HTTP {status} for {url} "
@@ -427,7 +426,7 @@ class PlaywrightFetcher:
                 )
             if status in _PLAYWRIGHT_ERROR_STATUSES:
                 raise FetchError(
-                    f"Playwright received HTTP {status} for {url} " f"(server error)"
+                    f"Playwright received HTTP {status} for {url} (server error)"
                 )
 
         return self._parse_html(html, final_url)
@@ -510,7 +509,7 @@ class Fetcher:
         # Try plugin registry
         plugin_cls = self._get_plugin_fetcher(self.backend)
         if plugin_cls is not None:
-            return plugin_cls().fetch(url)
+            return plugin_cls().fetch(url)  # type: ignore[no-any-return]
 
         raise ValueError(f"Unknown fetcher backend: {self.backend}")
 
@@ -559,8 +558,8 @@ class Fetcher:
         if plugin_cls is not None:
             instance = plugin_cls()
             if hasattr(instance, "fetch_async"):
-                return await instance.fetch_async(url)
-            return instance.fetch(url)
+                return await instance.fetch_async(url)  # type: ignore[no-any-return]
+            return instance.fetch(url)  # type: ignore[no-any-return]
 
         raise ValueError(f"Unknown fetcher backend: {self.backend}")
 
@@ -653,8 +652,9 @@ def _is_in_navigation(tag: Tag) -> bool:
                     for nav_word in ("nav", "menu", "header", "footer")
                 ):
                     return True
-            if current.get("id"):
-                id_str = current["id"].lower()
+            id_val = current.get("id")
+            if isinstance(id_val, str):
+                id_str = id_val.lower()
                 if any(
                     nav_word in id_str
                     for nav_word in ("nav", "menu", "header", "footer")

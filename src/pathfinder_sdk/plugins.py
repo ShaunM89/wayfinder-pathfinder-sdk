@@ -128,7 +128,7 @@ def resolve_ranker(name: str) -> type:
     """
     if name not in _RANKER_REGISTRY:
         raise ValueError(
-            f"Unknown ranker: {name}. " f"Available: {list(_RANKER_REGISTRY.keys())}"
+            f"Unknown ranker: {name}. Available: {list(_RANKER_REGISTRY.keys())}"
         )
     return _RANKER_REGISTRY[name]
 

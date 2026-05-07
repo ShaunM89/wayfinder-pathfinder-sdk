@@ -14,6 +14,7 @@ only JSON files are supported.
 import json
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ _DEFAULT_SEARCH_PATHS = [
 ]
 
 # Type conversion for env vars
-_ENV_TYPE_MAP = {
+_ENV_TYPE_MAP: dict[str, Callable[[str], object]] = {
     "top_n": int,
     "max_retries": int,
     "max_requests_per_domain": int,
@@ -50,8 +51,7 @@ def _load_yaml(path: str) -> dict:
             return yaml.safe_load(f) or {}
     except ImportError as exc:
         raise ImportError(
-            "PyYAML is required for YAML config files. "
-            "Install with: pip install pyyaml"
+            "PyYAML is required for YAML config files. Install with: pip install pyyaml"
         ) from exc
 
 
@@ -59,7 +59,7 @@ def _load_json(path: str) -> dict:
     """Load JSON config file."""
     try:
         with open(path, encoding="utf-8") as f:
-            return json.load(f)
+            return json.load(f)  # type: ignore[no-any-return]
     except json.JSONDecodeError as exc:
         raise ValueError(f"Invalid JSON in config file {path}: {exc}") from exc
 

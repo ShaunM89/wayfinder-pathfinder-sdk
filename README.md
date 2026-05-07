@@ -1,6 +1,6 @@
 # Pathfinder SDK
 
-[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 **Local ranking engine for AI navigation agents.**
@@ -19,14 +19,16 @@ Pathfinder SDK is a standalone, local-first Python SDK that takes a URL + task d
 
 ## Installation
 
+Install directly from GitHub (not yet published to PyPI):
+
 ```bash
-pip install pathfinder-sdk
+pip install "git+https://github.com/ShaunM89/wayfinder-pathfinder-sdk.git"
 ```
 
 With optional Playwright fallback for JS-rendered pages:
 
 ```bash
-pip install pathfinder-sdk[playwright]
+pip install "pathfinder-sdk[playwright] @ git+https://github.com/ShaunM89/wayfinder-pathfinder-sdk.git"
 ```
 
 ## Quickstart
@@ -224,8 +226,8 @@ pip install -e ".[dev]"
 pytest
 
 # Lint
-black src tests
 ruff check src tests
+ruff format --check src tests
 ```
 
 ## License

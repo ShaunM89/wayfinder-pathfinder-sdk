@@ -7,6 +7,7 @@ import asyncio
 import logging
 import time
 
+from pathfinder_sdk.cache import InMemoryEmbeddingCache
 from pathfinder_sdk.config import load_config
 from pathfinder_sdk.fetcher import Fetcher
 from pathfinder_sdk.filter import HeuristicFilter
@@ -39,7 +40,7 @@ class Pathfinder:
         fetcher: str | None = "auto",
         device: str | None = None,
         quiet: bool = False,
-        cache=None,
+        cache: InMemoryEmbeddingCache | None = None,
         tracer=None,
         metrics=None,
         config_path: str | None = None,

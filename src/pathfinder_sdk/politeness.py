@@ -100,7 +100,10 @@ class PolitenessController:
         if parser is None:
             return None
 
-        return parser.crawl_delay(self.user_agent)
+        delay = parser.crawl_delay(self.user_agent)
+        if delay is None:
+            return None
+        return float(delay)
 
     def _get_domain(self, url: str) -> str:
         """Extract domain from URL."""
