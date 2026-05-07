@@ -90,6 +90,47 @@ class TestRankCandidates:
 
     @patch("pathfinder_sdk.core.BiEncoderRanker")
     @patch("pathfinder_sdk.core.Fetcher")
+    def test_nested_config_wired_to_sub_components(
+        self, mock_fetcher_class, mock_ranker_class
+    ):
+        """Verify nested config from YAML is passed to fetcher, filter, and ranker."""
+        import json
+        import tempfile
+
+        config = {
+            "model": "ultra",
+            "fetcher": {"timeout": 42, "max_retries": 7, "backend": "curl"},
+            "filter": {"exclude_boilerplate": True, "min_anchor_length": 3},
+            "politeness": {"enabled": True, "rate_limit": 2.5},
+            "inference": {"batch_size": 16},
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+            json.dump(config, f)
+            path = f.name
+
+        try:
+            pf = Pathfinder(config_path=path)
+            assert pf.model_tier == "ultra"
+
+            # Fetcher should receive nested config
+            fetcher_call = mock_fetcher_class.call_args
+            assert fetcher_call.kwargs["timeout"] == 42
+            assert fetcher_call.kwargs["max_retries"] == 7
+            assert fetcher_call.kwargs["backend"] == "curl"
+
+            # Politeness controller should be created and passed
+            assert fetcher_call.kwargs["politeness"] is not None
+
+            # Ranker should receive batch_size
+            ranker_call = mock_ranker_class.call_args
+            assert ranker_call.kwargs["batch_size"] == 16
+        finally:
+            import os
+
+            os.unlink(path)
+
+    @patch("pathfinder_sdk.core.BiEncoderRanker")
+    @patch("pathfinder_sdk.core.Fetcher")
     def test_top_n_override(self, mock_fetcher_class, mock_ranker_class):
         mock_ranker = MagicMock()
         mock_ranker.rank.return_value = []

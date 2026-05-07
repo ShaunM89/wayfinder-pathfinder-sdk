@@ -31,6 +31,50 @@ With optional Playwright fallback for JS-rendered pages:
 pip install "pathfinder-sdk[playwright] @ git+https://github.com/ShaunM89/wayfinder-pathfinder-sdk.git"
 ```
 
+## Configuration
+
+Pathfinder loads settings from a cascading hierarchy (highest priority first):
+
+1. **Constructor / CLI arguments**
+2. **Environment variables** (`PATHFINDER_*`)
+3. **Config file** (first found):
+   - `./.pathfinder.yaml` (project-local)
+   - `./.pathfinder.json`
+   - `~/.config/pathfinder/config.yaml`
+   - `~/.config/pathfinder/config.json`
+
+Copy the provided `.pathfinder.yaml` into your project root and adjust defaults:
+
+```yaml
+model: default
+top_n: 20
+cache_dir: ~/.cache/pathfinder
+
+fetcher:
+  backend: auto
+  timeout: 10
+  max_retries: 3
+
+filter:
+  exclude_boilerplate: false
+  min_anchor_length: 1
+
+politeness:
+  enabled: true
+  rate_limit: 1.0
+
+inference:
+  batch_size: 32
+```
+
+Environment variable examples:
+
+```bash
+export PATHFINDER_MODEL=high
+export PATHFINDER_TOP_N=10
+export PATHFINDER_FETCHER_TIMEOUT=30
+```
+
 ## Quickstart
 
 ```python

@@ -130,6 +130,7 @@ class BiEncoderRanker:
         local_model_path: str | None = None,
         quiet: bool = False,
         cache: InMemoryEmbeddingCache | None = None,
+        batch_size: int = 32,
     ):
         if model_tier not in _MODEL_REGISTRY:
             valid = list(_MODEL_REGISTRY.keys())
@@ -144,6 +145,7 @@ class BiEncoderRanker:
         self.device = device or "cpu"
         self.local_model_path = local_model_path
         self.quiet = quiet
+        self.batch_size = batch_size
         self._cache = cache if cache is not None else InMemoryEmbeddingCache()
         self._model: SentenceTransformer | None = None
         self._backend: str = "pytorch"  # Tracks which backend is active
@@ -255,7 +257,7 @@ class BiEncoderRanker:
             # Batch encode (CRITICAL: single forward pass)
             embeddings = self.model.encode(
                 texts,
-                batch_size=32,
+                batch_size=self.batch_size,
                 convert_to_numpy=True,
                 show_progress_bar=False,
             )

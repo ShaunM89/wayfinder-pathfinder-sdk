@@ -87,3 +87,32 @@ class TestLoadConfig:
         monkeypatch.setenv("PATHFINDER_RATE_LIMIT", "2.5")
         config = load_config(search_paths=[])
         assert config["rate_limit"] == 2.5
+
+    def test_loads_nested_yaml_config(self):
+        pytest.importorskip("yaml", reason="PyYAML not installed")
+        import yaml
+
+        config_data = {
+            "model": "high",
+            "fetcher": {
+                "backend": "curl",
+                "timeout": 30,
+                "max_retries": 5,
+            },
+            "filter": {"exclude_boilerplate": True, "min_anchor_length": 2},
+            "politeness": {"enabled": False, "rate_limit": 2.0},
+            "inference": {"batch_size": 64},
+        }
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+            yaml.dump(config_data, f)
+            path = f.name
+        try:
+            config = load_config(search_paths=[path])
+            assert config["model"] == "high"
+            assert config["fetcher"]["backend"] == "curl"
+            assert config["fetcher"]["timeout"] == 30
+            assert config["filter"]["exclude_boilerplate"] is True
+            assert config["politeness"]["enabled"] is False
+            assert config["inference"]["batch_size"] == 64
+        finally:
+            os.unlink(path)

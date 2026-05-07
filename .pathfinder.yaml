@@ -1,0 +1,47 @@
+# Pathfinder SDK configuration file
+#
+# Place this file as one of:
+#   - ./.pathfinder.yaml           (project-local, highest priority)
+#   - ~/.config/pathfinder/config.yaml  (user-global)
+#
+# Values are overridden by PATHFINDER_* environment variables,
+# which are in turn overridden by constructor / CLI arguments.
+
+# ── Core SDK settings ─────────────────────────────────────────────
+
+model: default          # Model tier: default | high | ultra
+top_n: 20               # Number of ranked candidates to return
+cache_dir: ~/.cache/pathfinder
+device: null            # Inference device: cpu | cuda | null (auto-detect)
+quiet: false            # Suppress progress bars and model download output
+
+# ── Fetcher configuration ─────────────────────────────────────────
+
+fetcher:
+  backend: auto         # Fetcher backend: auto | curl | playwright
+  timeout: 10           # HTTP request timeout in seconds (curl)
+  max_retries: 3        # Retry attempts on transient failures (curl)
+  retry_delay: 1.0      # Base delay between retries in seconds (curl)
+  max_body_size: 10485760  # Maximum response body size in bytes (10 MB)
+  min_links_for_curl: 3   # In auto mode, fallback to Playwright if curl
+                          # returns fewer than this many links
+  user_agent: null      # Custom User-Agent string; null = default Chrome 133
+
+# ── Heuristic filter configuration ────────────────────────────────
+
+filter:
+  exclude_boilerplate: false   # Exclude footer/header links
+  min_anchor_length: 1         # Minimum anchor text length to keep
+
+# ── Politeness / rate limiting ────────────────────────────────────
+
+politeness:
+  enabled: true              # Enable robots.txt checks and rate limiting
+  rate_limit: 1.0            # Minimum seconds between requests to same domain
+  max_requests_per_domain: 100
+  user_agent: PathfinderSDK/0.1.0   # User-Agent for robots.txt checks
+
+# ── Inference configuration ───────────────────────────────────────
+
+inference:
+  batch_size: 32           # Encoding batch size for the bi-encoder ranker

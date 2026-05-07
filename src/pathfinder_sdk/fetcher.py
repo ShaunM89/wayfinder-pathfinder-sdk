@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup, NavigableString, Tag
 
 from pathfinder_sdk.models import FetchError
+from pathfinder_sdk.politeness import PolitenessController
 
 logger = logging.getLogger(__name__)
 
@@ -444,17 +445,37 @@ class Fetcher:
         backend: "auto", "curl", "playwright", or None.
         min_links_for_curl: In auto mode, fallback to Playwright if curl
             returns fewer than this many links. Default: 3.
+        timeout: HTTP request timeout in seconds (curl).
+        max_body_size: Maximum response body size in bytes.
+        max_retries: Retry attempts on transient failures (curl).
+        retry_delay: Base delay between retries in seconds (curl).
+        user_agent: Custom User-Agent string.
+        politeness: Optional PolitenessController for robots.txt and rate limits.
     """
 
     def __init__(
         self,
         backend: str | None = "auto",
         min_links_for_curl: int = 3,
+        timeout: int = 10,
+        max_body_size: int = _MAX_RESPONSE_SIZE_BYTES,
+        max_retries: int = 3,
+        retry_delay: float = 1.0,
+        user_agent: str | None = None,
+        politeness: PolitenessController | None = None,
     ):
         self.backend = backend
         self.min_links_for_curl = min_links_for_curl
-        self._curl = CurlFetcher()
+        self._politeness = politeness
+        self._curl = CurlFetcher(
+            user_agent=user_agent,
+            timeout=timeout,
+            max_body_size=max_body_size,
+            max_retries=max_retries,
+            retry_delay=retry_delay,
+        )
         self._playwright: PlaywrightFetcher | None = None
+        self._playwright_user_agent = user_agent
 
     def _get_plugin_fetcher(self, name: str):
         """Resolve a fetcher backend, including plugin fetchers."""
@@ -465,6 +486,14 @@ class Fetcher:
         except ValueError:
             return None
 
+    def _check_politeness(self, url: str) -> None:
+        """Enforce robots.txt and rate limiting before fetching."""
+        if self._politeness is None:
+            return
+        if not self._politeness.can_fetch(url):
+            raise FetchError(f"URL disallowed by robots.txt: {url}")
+        self._politeness.wait_if_needed(url)
+
     def fetch(self, url: str) -> list[dict]:
         """Fetch URL and return candidate links.
 
@@ -474,11 +503,15 @@ class Fetcher:
         Returns:
             List of candidate link dicts.
         """
+        self._check_politeness(url)
+
         if self.backend == "curl":
             return self._curl.fetch(url)
         if self.backend == "playwright":
             if self._playwright is None:
-                self._playwright = PlaywrightFetcher()
+                self._playwright = PlaywrightFetcher(
+                    user_agent=self._playwright_user_agent
+                )
             return self._playwright.fetch(url)
         if self.backend == "auto":
             # Try curl first; fallback on error OR low link count
@@ -497,7 +530,9 @@ class Fetcher:
                     self.min_links_for_curl,
                 )
                 if self._playwright is None:
-                    self._playwright = PlaywrightFetcher()
+                    self._playwright = PlaywrightFetcher(
+                        user_agent=self._playwright_user_agent
+                    )
                 try:
                     candidates = self._playwright.fetch(url)
                 except FetchError:
@@ -522,11 +557,15 @@ class Fetcher:
         Returns:
             List of candidate link dicts.
         """
+        self._check_politeness(url)
+
         if self.backend == "curl":
             return await self._curl.fetch_async(url)
         if self.backend == "playwright":
             if self._playwright is None:
-                self._playwright = PlaywrightFetcher()
+                self._playwright = PlaywrightFetcher(
+                    user_agent=self._playwright_user_agent
+                )
             return await self._playwright.fetch_async(url)
         if self.backend == "auto":
             try:
@@ -544,7 +583,9 @@ class Fetcher:
                     self.min_links_for_curl,
                 )
                 if self._playwright is None:
-                    self._playwright = PlaywrightFetcher()
+                    self._playwright = PlaywrightFetcher(
+                        user_agent=self._playwright_user_agent
+                    )
                 try:
                     candidates = await self._playwright.fetch_async(url)
                 except FetchError:

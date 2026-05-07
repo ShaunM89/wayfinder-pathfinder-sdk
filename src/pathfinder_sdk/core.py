@@ -13,10 +13,14 @@ from pathfinder_sdk.fetcher import Fetcher
 from pathfinder_sdk.filter import HeuristicFilter
 from pathfinder_sdk.metrics import get_metrics_collector
 from pathfinder_sdk.models import RankingResult
+from pathfinder_sdk.politeness import PolitenessController
 from pathfinder_sdk.ranker import BiEncoderRanker
 from pathfinder_sdk.telemetry import get_tracer
 
 logger = logging.getLogger(__name__)
+
+
+_UNSET = object()
 
 
 class Pathfinder:
@@ -34,45 +38,138 @@ class Pathfinder:
 
     def __init__(
         self,
-        model: str = "default",
-        top_n: int = 20,
-        cache_dir: str = "~/.cache/pathfinder",
-        fetcher: str | None = "auto",
-        device: str | None = None,
-        quiet: bool = False,
+        model: str = _UNSET,  # type: ignore[assignment]
+        top_n: int = _UNSET,  # type: ignore[assignment]
+        cache_dir: str = _UNSET,  # type: ignore[assignment]
+        fetcher: str | None = _UNSET,  # type: ignore[assignment]
+        device: str | None = _UNSET,  # type: ignore[assignment]
+        quiet: bool = _UNSET,  # type: ignore[assignment]
         cache: InMemoryEmbeddingCache | None = None,
         tracer=None,
         metrics=None,
         config_path: str | None = None,
         **kwargs,
     ):
+        # Defaults for named params (used when not explicitly provided)
+        _defaults = {
+            "model": "default",
+            "top_n": 20,
+            "cache_dir": "~/.cache/pathfinder",
+            "fetcher": "auto",
+            "device": None,
+            "quiet": False,
+        }
+
         # Load config from file + env vars, then merge with kwargs
         file_config = load_config(path=config_path)
         overrides = {k: v for k, v in kwargs.items() if v is not None}
 
-        self.model_tier = overrides.get("model", file_config.get("model", model))
-        self.top_n = overrides.get("top_n", file_config.get("top_n", top_n))
+        # Add explicitly-provided named params to overrides so they win over
+        # config file values.
+        for key in _defaults:
+            val = locals()[key]
+            if val is not _UNSET:
+                overrides[key] = val
+
+        self.model_tier = overrides.get(
+            "model", file_config.get("model", _defaults["model"])
+        )
+        self.top_n = overrides.get(
+            "top_n", file_config.get("top_n", _defaults["top_n"])
+        )
         self.cache_dir = overrides.get(
-            "cache_dir", file_config.get("cache_dir", cache_dir)
+            "cache_dir", file_config.get("cache_dir", _defaults["cache_dir"])
         )
-        self.fetcher_backend = overrides.get(
-            "fetcher", file_config.get("fetcher", fetcher)
+        self.device = overrides.get(
+            "device", file_config.get("device", _defaults["device"])
         )
-        self.device = overrides.get("device", file_config.get("device", device))
-        quiet = overrides.get("quiet", file_config.get("quiet", quiet))
+        quiet = overrides.get("quiet", file_config.get("quiet", _defaults["quiet"]))
         self._tracer = tracer if tracer is not None else get_tracer()
         self._metrics = metrics if metrics is not None else get_metrics_collector()
 
-        self._fetcher = (
-            Fetcher(backend=self.fetcher_backend) if self.fetcher_backend else None
+        # Fetcher config: support nested dict or flat string
+        fetcher_val = file_config.get("fetcher", fetcher)
+        fetcher_cfg: dict = {}
+        if isinstance(fetcher_val, dict):
+            fetcher_cfg = fetcher_val
+            fetcher_backend = overrides.get(
+                "fetcher", fetcher_cfg.get("backend", fetcher)
+            )
+        elif isinstance(fetcher_val, str):
+            fetcher_backend = overrides.get("fetcher", fetcher_val)
+        else:
+            fetcher_backend = overrides.get("fetcher", fetcher)
+
+        # Flat env-var fallbacks for fetcher settings
+        fetcher_cfg.setdefault("timeout", file_config.get("fetcher_timeout", 10))
+        fetcher_cfg.setdefault("max_retries", file_config.get("fetcher_max_retries", 3))
+        fetcher_cfg.setdefault(
+            "retry_delay", file_config.get("fetcher_retry_delay", 1.0)
         )
-        self._filter = HeuristicFilter()
+        fetcher_cfg.setdefault(
+            "max_body_size",
+            file_config.get("fetcher_max_body_size", 10 * 1024 * 1024),
+        )
+        fetcher_cfg.setdefault(
+            "min_links_for_curl",
+            file_config.get("fetcher_min_links_for_curl", 3),
+        )
+        fetcher_cfg.setdefault("user_agent", file_config.get("fetcher_user_agent"))
+
+        self.fetcher_backend = fetcher_backend
+
+        # Filter config
+        filter_cfg = file_config.get("filter", {})
+        filter_cfg.setdefault(
+            "exclude_boilerplate",
+            file_config.get("filter_exclude_boilerplate", False),
+        )
+        filter_cfg.setdefault(
+            "min_anchor_length",
+            file_config.get("filter_min_anchor_length", 1),
+        )
+
+        # Politeness config
+        politeness_cfg = file_config.get("politeness", {})
+        polite_enabled = overrides.get("polite", politeness_cfg.get("enabled", True))
+        if polite_enabled:
+            politeness_controller: PolitenessController | None = PolitenessController(
+                polite=True,
+                rate_limit=politeness_cfg.get("rate_limit", 1.0),
+                max_requests_per_domain=politeness_cfg.get(
+                    "max_requests_per_domain", 100
+                ),
+                user_agent=politeness_cfg.get("user_agent", "PathfinderSDK/0.1.0"),
+            )
+        else:
+            politeness_controller = None
+
+        # Inference config
+        inference_cfg = file_config.get("inference", {})
+        batch_size = inference_cfg.get("batch_size", 32)
+
+        self._fetcher = (
+            Fetcher(
+                backend=self.fetcher_backend,
+                min_links_for_curl=fetcher_cfg.get("min_links_for_curl", 3),
+                timeout=fetcher_cfg.get("timeout", 10),
+                max_body_size=fetcher_cfg.get("max_body_size", 10 * 1024 * 1024),
+                max_retries=fetcher_cfg.get("max_retries", 3),
+                retry_delay=fetcher_cfg.get("retry_delay", 1.0),
+                user_agent=fetcher_cfg.get("user_agent"),
+                politeness=politeness_controller,
+            )
+            if self.fetcher_backend
+            else None
+        )
+        self._filter = HeuristicFilter(**filter_cfg)
         self._ranker = BiEncoderRanker(
             model_tier=self.model_tier,
             cache_dir=self.cache_dir,
             device=self.device,
             quiet=quiet,
             cache=cache,
+            batch_size=batch_size,
         )
 
     def rank_candidates(

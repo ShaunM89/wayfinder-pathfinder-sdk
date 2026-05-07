@@ -104,6 +104,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Path to config file (YAML or JSON).",
     )
+    rank_parser.add_argument(
+        "--polite",
+        action="store_true",
+        default=None,
+        help="Enable politeness controls (robots.txt, rate limiting).",
+    )
 
     return parser
 
@@ -131,6 +137,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             fetcher=args.fetcher,
             device=args.device,
             quiet=args.quiet,
+            polite=args.polite,
             config_path=args.config,
         )
 

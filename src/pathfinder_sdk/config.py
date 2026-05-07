@@ -39,6 +39,11 @@ _ENV_TYPE_MAP: dict[str, Callable[[str], object]] = {
     "rate_limit": float,
     "retry_delay": float,
     "timeout": int,
+    "fetcher_timeout": int,
+    "fetcher_max_retries": int,
+    "fetcher_retry_delay": float,
+    "polite": lambda v: v.lower() in ("true", "1", "yes"),
+    "politeness_enabled": lambda v: v.lower() in ("true", "1", "yes"),
 }
 
 

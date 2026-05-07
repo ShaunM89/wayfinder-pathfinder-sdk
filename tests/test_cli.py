@@ -106,6 +106,7 @@ class TestMain:
             fetcher="curl",
             device=None,
             quiet=False,
+            polite=None,
             config_path=None,
         )
         mock_pf.rank_candidates.assert_called_once_with(
