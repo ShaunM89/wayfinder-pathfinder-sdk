@@ -83,6 +83,11 @@ def main() -> None:
         help="Output directory for ONNX model",
     )
     parser.add_argument(
+        "--local-path",
+        default=None,
+        help="Local path to model files (bypasses HF Hub download)",
+    )
+    parser.add_argument(
         "--skip-validate",
         action="store_true",
         help="Skip validation after export",
@@ -90,9 +95,10 @@ def main() -> None:
     args = parser.parse_args()
 
     repo_id = _MODEL_REGISTRY[args.tier]
+    model_source = args.local_path if args.local_path else repo_id
     output_dir = os.path.join(args.output, args.tier)
 
-    export_model(repo_id, output_dir)
+    export_model(model_source, output_dir)
 
     if not args.skip_validate:
         validate_onnx_model(output_dir)

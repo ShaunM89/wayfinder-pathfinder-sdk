@@ -51,7 +51,7 @@ logger = logging.getLogger(__name__)
 _MODEL_REGISTRY: dict[str, str] = {
     "default": "BAAI/bge-small-en-v1.5",
     "high": "BAAI/bge-m3",
-    "ultra": "perplexity/pplx-embed-context-v1-4b",
+    "ultra": "perplexity-ai/pplx-embed-context-v1-4b",
 }
 
 # Retry config for HF Hub downloads
@@ -187,6 +187,7 @@ class BiEncoderRanker:
                 model_path,
                 device=self.device,
                 backend="onnx",
+                trust_remote_code=True,
             )
             self._backend = "onnx"
             logger.info("Model loaded with ONNX Runtime backend")
@@ -197,7 +198,11 @@ class BiEncoderRanker:
 
         # Attempt 2: PyTorch fallback (always works if model files are present)
         try:
-            self._model = SentenceTransformer(model_path, device=self.device)
+            self._model = SentenceTransformer(
+                model_path,
+                device=self.device,
+                trust_remote_code=True,
+            )
             self._backend = "pytorch"
             logger.info("Model loaded with PyTorch backend")
         except Exception as pt_exc:

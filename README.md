@@ -155,7 +155,7 @@ When passing `candidates`, each dict should include:
 |---|---|---:|---:|---|
 | `default` | `BAAI/bge-small-en-v1.5` | ~400MB | ~1.5s | Balanced quality and memory |
 | `high` | `BAAI/bge-m3` | ~2.6GB | ~2.2s | Accuracy-first navigation |
-| `ultra` | `perplexity/pplx-embed-context-v1-4b` | ~4GB+ | ~5s+ | Maximum quality |
+| `ultra` | `perplexity-ai/pplx-embed-context-v1-4b` | ~4GB+ | ~5s+ | Maximum quality |
 
 *First call includes model download time (~10–60s depending on tier and connection).*
 

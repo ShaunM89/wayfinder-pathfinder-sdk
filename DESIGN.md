@@ -355,7 +355,7 @@ def _download_model(tier: str, cache_dir: str) -> str:
     model_ids = {
         "default": "BAAI/bge-small-en-v1.5",
         "high": "BAAI/bge-m3",
-        "ultra": "perplexity/pplx-embed-context-v1-4b",
+        "ultra": "perplexity-ai/pplx-embed-context-v1-4b",
     }
     return snapshot_download(
         repo_id=model_ids[tier],
